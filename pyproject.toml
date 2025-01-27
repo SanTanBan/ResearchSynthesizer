@@ -9,4 +9,5 @@ dependencies = [
     "flask>=3.1.0",
     "openai>=1.60.1",
     "streamlit>=1.41.1",
+    "flask-swagger-ui>=4.11.1",
 ]

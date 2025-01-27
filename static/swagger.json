@@ -1,0 +1,141 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Research Paper Discovery System API",
+    "description": "API for searching and retrieving research papers from arXiv based on natural language queries",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://research-synth-miliskrap.replit.app",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/api/research": {
+      "get": {
+        "summary": "Search Research Papers",
+        "description": "Retrieve relevant research papers based on a natural language question and optional criteria",
+        "parameters": [
+          {
+            "name": "question",
+            "in": "query",
+            "required": true,
+            "description": "The research question or topic to search for",
+            "schema": {
+              "type": "string",
+              "example": "What is the impact of artificial intelligence on healthcare?"
+            }
+          },
+          {
+            "name": "criteria",
+            "in": "query",
+            "required": false,
+            "description": "Additional filtering criteria (e.g., 'after 2020', 'only controlled trials')",
+            "schema": {
+              "type": "string",
+              "example": "after 2020"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with research papers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "keywords": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": ["artificial intelligence", "healthcare", "medical diagnosis"]
+                    },
+                    "total_results": {
+                      "type": "integer",
+                      "example": 50
+                    },
+                    "papers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "authors": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "abstract": {
+                            "type": "string"
+                          },
+                          "published": {
+                            "type": "string"
+                          },
+                          "arxiv_id": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing required parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Research question is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Internal server error occurred"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

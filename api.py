@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 from paper_processor import PaperProcessor
 from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
@@ -14,6 +15,19 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Swagger configuration
+SWAGGER_URL = '/api/docs'
+API_URL = '/static/swagger.json'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Research Paper Discovery System API"
+    }
+)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
 # Initialize components
 try:
     cache_manager = CacheManager()
@@ -25,8 +39,13 @@ except Exception as e:
     logger.error(f"Failed to initialize components: {str(e)}")
     raise
 
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
+
 @app.route('/api/research', methods=['GET'])
 def get_research_papers():
+    """Get research papers based on a question and optional criteria"""
     try:
         # Get parameters from request
         research_question = request.args.get('question', '')
