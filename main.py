@@ -11,7 +11,17 @@ from paper_analyzer import PaperAnalyzer
 from parallel_processor import ParallelProcessor
 from science_agent import ScienceAgent
 
+# Set page config before any other st commands
 st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
+
+# Custom CSS to reduce title size
+st.markdown("""
+<style>
+    .stTitle {
+        font-size: 1.5rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def handle_together_api_key(uploaded_file):
     """Process uploaded Together AI API key file"""
@@ -33,69 +43,81 @@ def handle_together_api_key(uploaded_file):
     return False
 
 def main():
-    st.title("Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology")
+    try:
+        st.title("Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology")
 
-    # Sidebar for configuration
-    with st.sidebar:
-        st.subheader("🔑 API Configuration")
+        # Initialize session state for results
+        if 'pipeline_results' not in st.session_state:
+            st.session_state.pipeline_results = None
+        if 'search_results' not in st.session_state:
+            st.session_state.search_results = None
 
-        # Together AI API Key Upload
-        st.markdown("""
-        #### Upload Together AI API Key
-        Please upload a .docx file containing **only** your Together AI API key.
-        The file should contain nothing else but the API key text.
-        """)
-        uploaded_file = st.file_uploader("Upload API Key (docx)", type=['docx'])
-        if uploaded_file:
-            if handle_together_api_key(uploaded_file):
-                st.success("Together AI API key loaded successfully!")
+        # Sidebar for configuration
+        with st.sidebar:
+            st.subheader("🔑 API Configuration")
 
-        # Model Selection
-        st.subheader("🤖 Model Configuration")
-        selected_model = None
-        if 'TOGETHER_API_KEY' in st.session_state:
-            models = KeywordExtractor.TOGETHER_MODELS
-            use_together = st.checkbox("Use Together AI", value=True)
-            if use_together:
-                selected_model = st.selectbox("Select Together AI Model", models)
+            # Together AI API Key Upload
+            st.markdown("""
+            #### Upload Together AI API Key
+            Please upload a .docx file containing **only** your Together AI API key.
+            The file should contain nothing else but the API key text.
+            """)
+            uploaded_file = st.file_uploader("Upload API Key (docx)", type=['docx'])
+            if uploaded_file:
+                if handle_together_api_key(uploaded_file):
+                    st.success("Together AI API key loaded successfully!")
 
-        # Paper Limit Control
-        st.subheader("📚 Search Configuration")
-        max_papers = st.slider(
-            "Maximum Papers to Search",
-            min_value=3,
-            max_value=49,
-            value=20,
-            help="Set the maximum number of papers to search for (between 3 and 49)"
-        )
+            # Model Selection
+            st.subheader("🤖 Model Configuration")
+            selected_model = None
+            if 'TOGETHER_API_KEY' in st.session_state:
+                models = KeywordExtractor.TOGETHER_MODELS
+                use_together = st.checkbox("Use Together AI", value=True)
+                if use_together:
+                    selected_model = st.selectbox("Select Together AI Model", models)
 
-    # Initialize components
-    cache_manager = CacheManager()
-    keyword_extractor = KeywordExtractor()
-    if selected_model:
-        keyword_extractor.set_together_model(selected_model)
+            # Paper Limit Control
+            st.subheader("📚 Search Configuration")
+            max_papers = st.slider(
+                "Maximum Papers to Search",
+                min_value=0,
+                max_value=50,
+                value=20,
+                help="Set the maximum number of papers to search for (between 0 and 50)"
+            )
 
-    arxiv_client = ArxivAPIClient()
-    paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
-    abstract_filter = AbstractFilter()
+            # Display Keywords (if available)
+            if st.session_state.search_results:
+                st.subheader("🔍 Search Keywords")
+                st.write("Keywords used in search:")
+                st.write(st.session_state.search_results.get('keywords', []))
 
-    # Input form
-    with st.form("research_query_form"):
-        research_question = st.text_area(
-            "Research Question/Hypothesis",
-            help="Enter your research question or hypothesis"
-        )
+        # Initialize components
+        cache_manager = CacheManager()
+        keyword_extractor = KeywordExtractor()
+        if selected_model:
+            keyword_extractor.set_together_model(selected_model)
 
-        criteria = st.text_area(
-            "Additional Criteria",
-            help="Enter additional criteria (e.g., publication quality, study type)",
-            placeholder="Example: only double-blind controlled trials, published after 2020"
-        )
+        arxiv_client = ArxivAPIClient()
+        paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
+        abstract_filter = AbstractFilter()
 
-        submitted = st.form_submit_button("Search Papers")
+        # Input form
+        with st.form("research_query_form"):
+            research_question = st.text_area(
+                "Research Question/Hypothesis",
+                help="Enter your research question or hypothesis"
+            )
 
-    if submitted:
-        try:
+            criteria = st.text_area(
+                "Additional Criteria",
+                help="Enter additional criteria (e.g., publication quality, study type)",
+                placeholder="Example: only double-blind controlled trials, published after 2020"
+            )
+
+            submitted = st.form_submit_button("Search Papers")
+
+        if submitted:
             # Step 1: Initial Setup
             st.info("🚀 Starting paper discovery process...")
             if not 'TOGETHER_API_KEY' in st.session_state:
@@ -105,6 +127,7 @@ def main():
             # Step 2: Search Papers with max_papers limit
             with st.spinner("📚 Searching for relevant papers..."):
                 results = paper_processor.process_query(research_question, criteria, max_papers)
+                st.session_state.search_results = results
                 initial_papers = len(results['papers'])
                 st.success(f"Found {initial_papers} papers based on keyword search.")
 
@@ -123,13 +146,18 @@ def main():
                     results['papers'],
                     research_question
                 )
+                st.session_state.pipeline_results = pipeline_results
 
                 # Clear progress indicators
                 progress_bar.empty()
                 status_text.empty()
 
+        # Display results if available in session state
+        if st.session_state.pipeline_results:
+            pipeline_results = st.session_state.pipeline_results
+
             # Step 4: Aggregate Results
-            st.write("🔄 Aggregating results from all pipelines...")
+            parallel_processor = ParallelProcessor()
             aggregated_results = parallel_processor.aggregate_results(pipeline_results)
 
             if aggregated_results['status'] == 'success':
@@ -274,15 +302,15 @@ def main():
                                         st.write("**Expected Outcomes and Success Metrics:**")
                                         for outcome in exp_design['expected_outcomes']:
                                             st.write(f"• {outcome}")
-                else:
-                    st.warning("No hypotheses generated from the analysis.")
+                    else:
+                        st.warning("No hypotheses generated from the analysis.")
 
             else:
                 st.error("❌ No successful pipeline results to display")
 
-        except Exception as e:
-            st.error(f"An error occurred while processing your request: {str(e)}")
-            logging.error(f"Error in main: {str(e)}")
+    except Exception as e:
+        st.error(f"An error occurred while processing your request: {str(e)}")
+        logging.error(f"Error in main: {str(e)}")
 
 if __name__ == "__main__":
     main()
