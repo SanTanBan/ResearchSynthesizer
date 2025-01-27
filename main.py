@@ -7,7 +7,28 @@ from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
 from abstract_filter import AbstractFilter
-from paper_analyzer import PaperAnalyzer #Import PaperAnalyzer
+from paper_analyzer import PaperAnalyzer
+
+# Configure logging to show in Streamlit
+class StreamlitHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        # Use different Streamlit display methods based on log level
+        if record.levelno >= logging.ERROR:
+            st.error(log_entry)
+        elif record.levelno >= logging.WARNING:
+            st.warning(log_entry)
+        elif record.levelno >= logging.INFO:
+            st.info(log_entry)
+        else:
+            st.text(log_entry)
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+streamlit_handler = StreamlitHandler()
+streamlit_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(streamlit_handler)
 
 st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
 
@@ -38,11 +59,15 @@ def main():
 
     if submitted:
         try:
-            # Step 1: Initial Setup
-            st.info("🚀 Starting paper discovery process...")
-            if not os.environ.get("OPENAI_API_KEY"):
-                st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
+            # Create a container for logs
+            log_container = st.empty()
+            with st.expander("📋 Process Logs", expanded=True):
+                st.info("🚀 Starting paper discovery process...")
+                if not os.environ.get("OPENAI_API_KEY"):
+                    st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
 
+            # Step 1: Initial Setup
+            
             # Step 2: Search Papers
             with st.spinner("📚 Searching for relevant papers..."):
                 results = paper_processor.process_query(research_question, criteria)
@@ -112,9 +137,8 @@ def main():
 
                 # Store analyses in session state to persist between reruns
                 if 'paper_analyses' not in st.session_state:
+                    st.session_state.paper_analyses = []
                     for i, analysis in enumerate(paper_analyzer.analyze_papers(filtered_papers, research_question)):
-                        if 'paper_analyses' not in st.session_state:
-                            st.session_state.paper_analyses = []
                         st.session_state.paper_analyses.append(analysis)
                         # Update progress
                         progress = (i + 1) / total_papers
