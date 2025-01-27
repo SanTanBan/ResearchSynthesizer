@@ -105,9 +105,9 @@ def main():
             max_papers = st.slider(
                 "Maximum Papers to Search",
                 min_value=0,
-                max_value=50,
-                value=5,  # Changed from 20 to 5
-                help="Set the maximum number of papers to search for (between 0 and 50)"
+                max_value=25,  # Changed from 50 to 25
+                value=5,  # Default value of 5 papers
+                help="Set the maximum number of papers to search for (between 0 and 25)"
             )
 
             # Display Keywords (if available)
@@ -345,7 +345,6 @@ def main():
                                         st.markdown('<p class="exp-design-subheader">Required Bioinformatics Tools and Datasets</p>', unsafe_allow_html=True)
                                         for tool in exp_design['bioinformatics_tools']:
                                             st.markdown(f'<p class="exp-design-bullet">• {tool}</p>', unsafe_allow_html=True)
-
 
                     else:
                         st.warning("No hypotheses generated from the analysis.")
