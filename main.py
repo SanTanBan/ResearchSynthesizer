@@ -14,11 +14,18 @@ from science_agent import ScienceAgent
 # Set page config before any other st commands
 st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
 
-# Custom CSS to reduce title size
+# Custom CSS to reduce title size and add keyword display style
 st.markdown("""
 <style>
     .stTitle {
-        font-size: 1.5rem !important;
+        font-size: 1.2rem !important;
+        margin-bottom: 1rem !important;
+    }
+    .discovery-keywords {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -129,6 +136,15 @@ def main():
                 results = paper_processor.process_query(research_question, criteria, max_papers)
                 st.session_state.search_results = results
                 initial_papers = len(results['papers'])
+
+                # Display keywords in discovery process
+                st.markdown("### 🔍 Search Keywords Used")
+                st.markdown('<div class="discovery-keywords">', unsafe_allow_html=True)
+                st.write("The following keywords were extracted from your research question:")
+                for keyword in results['keywords']:
+                    st.markdown(f"• {keyword}")
+                st.markdown('</div>', unsafe_allow_html=True)
+
                 st.success(f"Found {initial_papers} papers based on keyword search.")
 
             # Step 3: Initialize Parallel Processing

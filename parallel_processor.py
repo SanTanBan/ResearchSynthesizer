@@ -1,6 +1,7 @@
 import logging
+import time
 from typing import List, Dict, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from science_agent import ScienceAgent
 from paper_analyzer import PaperAnalyzer
 from abstract_filter import AbstractFilter
@@ -10,14 +11,16 @@ class ParallelProcessor:
         self.science_agent = ScienceAgent()
         self.paper_analyzer = PaperAnalyzer()
         self.abstract_filter = AbstractFilter()
-        self.max_workers = 4  # Limit concurrent processing
+        self.max_workers = 3  # Reduced concurrent processing
+        self.timeout = 300  # 5 minutes timeout for each paper
         logging.basicConfig(level=logging.INFO)
 
     def process_paper_pipeline(self, paper: Dict[str, Any], research_question: str) -> Dict[str, Any]:
         """Process a single paper through the complete pipeline"""
         try:
             paper_id = paper.get('arxiv_id', 'unknown')
-            logging.info(f"🔄 Starting pipeline for paper {paper_id}")
+            title = paper.get('title', 'Unknown Title')
+            logging.info(f"🔄 Starting pipeline for paper {paper_id}: {title}")
 
             # Step 1: Abstract Analysis
             abstract_analysis = self.abstract_filter._analyze_abstract(
@@ -34,30 +37,48 @@ class ParallelProcessor:
                     'pipeline_results': None
                 }
 
-            # Step 2: Full Paper Analysis
-            paper_analysis = self.paper_analyzer._analyze_paper_content(
-                paper.get('full_text', paper['abstract']),  # Fallback to abstract if full text not available
-                research_question
-            )
+            # Step 2: Full Paper Analysis with timeout
+            try:
+                paper_analysis = self.paper_analyzer._analyze_paper_content(
+                    paper.get('full_text', paper['abstract']),
+                    research_question
+                )
+            except Exception as e:
+                logging.error(f"Error in paper analysis for {paper_id}: {str(e)}")
+                paper_analysis = {
+                    'summary': 'Analysis failed',
+                    'relevant_points': [],
+                    'limitations': []
+                }
 
-            # Step 3: Hypothesis Generation
-            hypotheses = self.science_agent.generate_hypothesis(
-                paper.get('full_text', paper['abstract']),
-                research_question
-            )
+            # Step 3: Hypothesis Generation with timeout
+            try:
+                hypotheses = self.science_agent.generate_hypothesis(
+                    paper.get('full_text', paper['abstract']),
+                    research_question
+                )
+            except Exception as e:
+                logging.error(f"Error in hypothesis generation for {paper_id}: {str(e)}")
+                hypotheses = {
+                    'hypotheses': [],
+                    'knowledge_gaps': []
+                }
 
-            # Step 4: Experimental Design for each hypothesis
+            # Step 4: Experimental Design with timeout
             experimental_designs = []
             for hypothesis in hypotheses.get('hypotheses', []):
                 if isinstance(hypothesis, dict) and 'hypothesis' in hypothesis:
-                    design = self.science_agent.design_experiments(
-                        hypothesis['hypothesis'],
-                        paper.get('full_text', paper['abstract'])
-                    )
-                    experimental_designs.append({
-                        'hypothesis': hypothesis,
-                        'design': design
-                    })
+                    try:
+                        design = self.science_agent.design_experiments(
+                            hypothesis['hypothesis'],
+                            paper.get('full_text', paper['abstract'])
+                        )
+                        experimental_designs.append({
+                            'hypothesis': hypothesis,
+                            'design': design
+                        })
+                    except Exception as e:
+                        logging.error(f"Error in experimental design for {paper_id}: {str(e)}")
 
             return {
                 'paper_id': paper_id,
@@ -72,7 +93,7 @@ class ParallelProcessor:
             }
 
         except Exception as e:
-            logging.error(f"❌ Error in pipeline for paper {paper_id}: {str(e)}")
+            logging.error(f"❌ Error in pipeline for {paper_id}: {str(e)}")
             return {
                 'paper_id': paper_id,
                 'status': 'error',
@@ -81,7 +102,7 @@ class ParallelProcessor:
             }
 
     def process_papers_parallel(self, papers: List[Dict[str, Any]], research_question: str) -> List[Dict[str, Any]]:
-        """Process multiple papers in parallel"""
+        """Process multiple papers in parallel with timeout"""
         results = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_paper = {
@@ -89,14 +110,27 @@ class ParallelProcessor:
                 for paper in papers
             }
 
+            completed = 0
+            total = len(papers)
+
             for future in as_completed(future_to_paper):
                 paper = future_to_paper[future]
+                completed += 1
+
                 try:
-                    result = future.result()
+                    result = future.result(timeout=self.timeout)
                     results.append(result)
-                    logging.info(f"✅ Completed pipeline for paper {paper.get('arxiv_id', 'unknown')}")
+                    logging.info(f"✅ Completed pipeline for paper {completed}/{total}: {paper.get('title', 'Unknown')}")
+                except TimeoutError:
+                    logging.error(f"⏰ Timeout processing paper: {paper.get('title', 'Unknown')}")
+                    results.append({
+                        'paper_id': paper.get('arxiv_id', 'unknown'),
+                        'status': 'timeout',
+                        'error': 'Processing timed out',
+                        'pipeline_results': None
+                    })
                 except Exception as e:
-                    logging.error(f"❌ Pipeline failed for paper {paper.get('arxiv_id', 'unknown')}: {str(e)}")
+                    logging.error(f"❌ Pipeline failed for paper: {paper.get('title', 'Unknown')}: {str(e)}")
                     results.append({
                         'paper_id': paper.get('arxiv_id', 'unknown'),
                         'status': 'error',

@@ -11,7 +11,7 @@ class AbstractFilter:
     def __init__(self):
         self.openai_model = "gpt-3.5-turbo-1106"  # Using faster GPT-3.5 model
         self.together_model = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
-        self.rate_limit_delay = 1  # seconds between requests
+        self.rate_limit_delay = 3  # Increased delay between requests
         self.last_request_time = 0
         self.setup_clients()
 
@@ -21,10 +21,18 @@ class AbstractFilter:
         self.together_client = None
 
         if os.environ.get("OPENAI_API_KEY"):
-            self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            try:
+                self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                logging.info("OpenAI client initialized successfully")
+            except Exception as e:
+                logging.error(f"Error initializing OpenAI client: {str(e)}")
 
         if 'TOGETHER_API_KEY' in st.session_state:
-            self.together_client = Together(api_key=st.session_state['TOGETHER_API_KEY'])
+            try:
+                self.together_client = Together(api_key=st.session_state['TOGETHER_API_KEY'])
+                logging.info("Together AI client initialized successfully")
+            except Exception as e:
+                logging.error(f"Error initializing Together AI client: {str(e)}")
 
     def _rate_limit(self):
         """Implement rate limiting"""
@@ -86,9 +94,12 @@ class AbstractFilter:
         """Analyze a single abstract using available AI services with fallback"""
         # Try Together AI first
         if self.together_client:
-            result = self._analyze_abstract_together(abstract, research_question)
-            if result:
-                return result
+            try:
+                result = self._analyze_abstract_together(abstract, research_question)
+                if result:
+                    return result
+            except Exception as e:
+                logging.error(f"Together AI analysis failed: {str(e)}")
 
         # Fallback to OpenAI if available
         if self.openai_client:
@@ -121,14 +132,21 @@ class AbstractFilter:
                 }
 
             except Exception as e:
-                logging.error(f"Error analyzing abstract with OpenAI: {str(e)}")
+                logging.error(f"OpenAI analysis failed: {str(e)}")
 
-        # Basic analysis as last resort
-        return {
-            'is_relevant': True,  # Include paper if no AI analysis is available
-            'confidence': 0.5,
-            'reason': "Basic inclusion: No AI service available for detailed analysis"
-        }
+        # More detailed message when no AI service is available
+        if not self.together_client and not self.openai_client:
+            return {
+                'is_relevant': True,  # Include paper if no AI analysis is available
+                'confidence': 0.5,
+                'reason': "Paper included for manual review (AI services unavailable). Please upload a Together AI API key to enable detailed analysis."
+            }
+        else:
+            return {
+                'is_relevant': True,
+                'confidence': 0.5,
+                'reason': "Paper included for manual review (AI analysis failed). The system will retry analysis in the next step."
+            }
 
     def filter_papers(self, papers: List[Dict[str, Any]], research_question: str) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Filter papers based on abstract relevance"""
