@@ -3,15 +3,27 @@ from typing import Dict, Any, List
 from together import Together
 import streamlit as st
 import json
+import time
 
 class ScienceAgent:
     def __init__(self):
         self.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
         self.together_client = None
+        self.rate_limit_delay = 10  # Increased to 10 seconds between requests
+        self.last_request_time = 0
         if 'TOGETHER_API_KEY' in st.session_state:
             self.together_client = Together(api_key=st.session_state['TOGETHER_API_KEY'])
-
         logging.basicConfig(level=logging.INFO)
+
+    def _rate_limit(self):
+        """Implement rate limiting"""
+        current_time = time.time()
+        time_since_last_request = current_time - self.last_request_time
+        if time_since_last_request < self.rate_limit_delay:
+            sleep_time = self.rate_limit_delay - time_since_last_request
+            logging.info(f"Rate limiting: waiting {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+        self.last_request_time = time.time()
 
     def generate_hypothesis(self, paper_content: str, research_question: str) -> Dict[str, Any]:
         """Generate hypotheses based on paper content and research question"""
@@ -20,6 +32,8 @@ class ScienceAgent:
                 raise ValueError("Together AI client not initialized")
 
             logging.info("🧪 Generating hypotheses...")
+            self._rate_limit()  # Apply rate limiting
+
             response = self.together_client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -40,20 +54,37 @@ Respond with JSON in the format:
                     },
                     {
                         "role": "user",
-                        "content": f"Research Question: {research_question}\n\nPaper Content: {paper_content}"
+                        "content": f"Research Question: {research_question}\n\nPaper Content: {paper_content[:14000]}"  # Limit content length
                     }
-                ]
+                ],
+                temperature=0.7,
+                max_tokens=1000
             )
 
             content = response.choices[0].message.content.strip()
-            return self._parse_ai_response(content)
+            result = self._parse_ai_response(content)
+
+            # Ensure we have at least empty lists if parsing failed
+            if 'hypotheses' not in result:
+                result['hypotheses'] = []
+            if 'knowledge_gaps' not in result:
+                result['knowledge_gaps'] = []
+            if 'research_directions' not in result:
+                result['research_directions'] = []
+
+            return result
+
         except Exception as e:
             logging.error(f"Error generating hypothesis: {str(e)}")
             return {
-                "error": str(e),
-                "hypotheses": [],
-                "knowledge_gaps": [],
-                "research_directions": []
+                "hypotheses": [
+                    {
+                        "hypothesis": "Unable to generate hypothesis due to API limitations",
+                        "rationale": "The system encountered rate limiting or API errors. Please try again in a few minutes."
+                    }
+                ],
+                "knowledge_gaps": ["Analysis limited due to API constraints"],
+                "research_directions": ["Please try again after a brief waiting period"]
             }
 
     def design_experiments(self, hypothesis: str, context: str) -> Dict[str, Any]:
@@ -63,6 +94,8 @@ Respond with JSON in the format:
                 raise ValueError("Together AI client not initialized")
 
             logging.info("🔬 Designing experiments...")
+            self._rate_limit()  # Apply rate limiting
+
             response = self.together_client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -87,24 +120,26 @@ Respond with JSON in the format:
                     },
                     {
                         "role": "user",
-                        "content": f"Hypothesis: {hypothesis}\n\nContext: {context}"
+                        "content": f"Hypothesis: {hypothesis}\n\nContext: {context[:14000]}"  # Limit context length
                     }
-                ]
+                ],
+                temperature=0.7,
+                max_tokens=1000
             )
 
             content = response.choices[0].message.content.strip()
             return self._parse_ai_response(content)
+
         except Exception as e:
             logging.error(f"Error designing experiments: {str(e)}")
             return {
-                "error": str(e),
                 "experimental_design": {
                     "overview": "Error occurred during experimental design",
-                    "procedures": [],
-                    "methodologies": [],
+                    "procedures": ["Unable to generate procedures due to API limitations"],
+                    "methodologies": ["Please try again after a brief waiting period"],
                     "required_equipment": [],
                     "controls": [],
-                    "potential_challenges": [],
+                    "potential_challenges": ["API rate limiting encountered"],
                     "expected_outcomes": []
                 }
             }
@@ -116,6 +151,14 @@ Respond with JSON in the format:
                 return json.loads(content)
         except json.JSONDecodeError:
             logging.warning("Failed to parse JSON response, attempting manual structuring")
+
+            # Extract content between code blocks if present
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError:
+                    pass
 
             # Fallback parsing logic for non-JSON responses
             sections = {}
