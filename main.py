@@ -49,6 +49,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def handle_together_api_key(uploaded_file):
+    """Process uploaded Together AI API key file"""
+    if uploaded_file is not None:
+        try:
+            # Read the docx file
+            doc_bytes = uploaded_file.read()
+            with open("temp.docx", "wb") as f:
+                f.write(doc_bytes)
+            from docx import Document
+            doc = Document("temp.docx")
+            api_key = " ".join(paragraph.text for paragraph in doc.paragraphs)
+            os.remove("temp.docx")  # Clean up
+            if api_key.strip():
+                st.session_state['TOGETHER_API_KEY'] = api_key.strip()
+                return True
+        except Exception as e:
+            st.error(f"Error processing API key file: {str(e)}")
+            return False
+    return False
+
 def main():
     try:
         st.title("Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology")
@@ -59,16 +79,32 @@ def main():
         if 'search_results' not in st.session_state:
             st.session_state.search_results = None
 
-        # Load API key at startup
-        api_key = load_together_api_key()
-        if api_key:
-            st.session_state['TOGETHER_API_KEY'] = api_key
-        else:
-            st.error("Unable to load Together AI API key. Please check the api_key.docx file.")
-            return
-
         # Sidebar for configuration
         with st.sidebar:
+            st.subheader("🔑 API Configuration")
+
+            # Together AI API Key Upload
+            st.markdown("""
+            #### Upload Together AI API Key (Optional)
+            You can upload a .docx file containing your Together AI API key.
+            If not provided, the app will use an internal API key.
+            """)
+            uploaded_file = st.file_uploader("Upload API Key (docx)", type=['docx'])
+            if uploaded_file:
+                if handle_together_api_key(uploaded_file):
+                    st.success("Together AI API key loaded successfully!")
+
+            # Try to use internal API key if no user key is provided
+            if 'TOGETHER_API_KEY' not in st.session_state:
+                api_key = load_together_api_key()
+                if api_key:
+                    st.session_state['TOGETHER_API_KEY'] = api_key
+                    st.info("Using internal Together AI API key")
+                else:
+                    st.error("Unable to load internal Together AI API key")
+                    return
+
+            # Model Selection
             st.subheader("🤖 Model Configuration")
             models = KeywordExtractor.TOGETHER_MODELS
             use_together = st.checkbox("Use Together AI", value=True)
