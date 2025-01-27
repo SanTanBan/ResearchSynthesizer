@@ -37,8 +37,13 @@ def main():
 
     if submitted:
         try:
+            # Create a collapsible summary section
+            with st.expander("🔍 Filtering Process Summary", expanded=True):
+                summary_placeholder = st.empty()
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
             # Step 1: Initial Setup
-            st.info("🚀 Starting paper discovery process...")
             if not os.environ.get("OPENAI_API_KEY"):
                 st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
 
@@ -46,15 +51,18 @@ def main():
             with st.spinner("📚 Searching for relevant papers..."):
                 results = paper_processor.process_query(research_question, criteria)
                 initial_papers = len(results['papers'])
-                st.success(f"Found {initial_papers} papers based on keyword search.")
 
-            # Step 3: Filter Papers
-            st.write("🤖 Analyzing paper abstracts for relevance...")
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            filter_results = st.empty()
-
-            papers_before = len(results['papers'])
+                # Update summary
+                summary_content = f"""
+                ### Current Progress
+                1. **Initial Search** ✓
+                   - Found {initial_papers} papers
+                   - Keywords: {', '.join(results['keywords'])}
+                2. **Abstract Analysis** 🔄
+                   - Papers to analyze: {initial_papers}
+                   - Progress: Starting...
+                """
+                summary_placeholder.markdown(summary_content)
 
             # Add CSS to create scrollable containers
             st.markdown("""
@@ -71,21 +79,23 @@ def main():
                 </style>
             """, unsafe_allow_html=True)
 
-            # Create two columns for showing kept and dropped papers
-            col1, col2 = st.columns(2)
+            # Create collapsible section for detailed analysis
+            with st.expander("📊 Detailed Analysis View", expanded=False):
+                # Create two columns for showing kept and dropped papers
+                col1, col2 = st.columns(2)
 
-            # Initialize containers for kept and dropped papers
-            with col1:
-                st.subheader("📋 Kept Papers")
-                st.markdown('<div class="scrollable-container" id="kept-papers">', unsafe_allow_html=True)
-                kept_papers_container = st.empty()
-                st.markdown('</div>', unsafe_allow_html=True)
+                # Initialize containers for kept and dropped papers
+                with col1:
+                    st.subheader("📋 Kept Papers")
+                    st.markdown('<div class="scrollable-container" id="kept-papers">', unsafe_allow_html=True)
+                    kept_papers_container = st.empty()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-            with col2:
-                st.subheader("❌ Dropped Papers")
-                st.markdown('<div class="scrollable-container" id="dropped-papers">', unsafe_allow_html=True)
-                dropped_papers_container = st.empty()
-                st.markdown('</div>', unsafe_allow_html=True)
+                with col2:
+                    st.subheader("❌ Dropped Papers")
+                    st.markdown('<div class="scrollable-container" id="dropped-papers">', unsafe_allow_html=True)
+                    dropped_papers_container = st.empty()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             # Filter papers with progress updates
             filtered_papers, analysis_results = abstract_filter.filter_papers(
@@ -101,7 +111,21 @@ def main():
             for i, result in enumerate(analysis_results):
                 progress = (i + 1) / len(analysis_results)
                 progress_bar.progress(progress)
+
+                # Update status and summary
                 status_text.text(f"Analyzing paper {i + 1} of {len(analysis_results)}")
+                current_kept = sum(1 for r in analysis_results[:i+1] if r['is_relevant'])
+                summary_content = f"""
+                ### Current Progress
+                1. **Initial Search** ✓
+                   - Found {initial_papers} papers
+                   - Keywords: {', '.join(results['keywords'])}
+                2. **Abstract Analysis** 🔄
+                   - Papers analyzed: {i + 1} of {len(analysis_results)}
+                   - Papers kept so far: {current_kept}
+                   - Progress: {progress:.0%} complete
+                """
+                summary_placeholder.markdown(summary_content)
 
                 # Format paper info
                 paper_info = f"""
@@ -128,11 +152,23 @@ def main():
             progress_bar.empty()
             status_text.empty()
 
-            st.success(f"✨ Analysis complete! Kept {papers_after} out of {papers_before} papers.")
+            # Final summary update
+            final_summary = f"""
+            ### Final Results
+            1. **Initial Search** ✓
+               - Found {initial_papers} papers
+               - Keywords: {', '.join(results['keywords'])}
+            2. **Abstract Analysis** ✓
+               - Papers analyzed: {len(analysis_results)}
+               - Papers kept: {papers_after}
+               - Papers filtered out: {initial_papers - papers_after}
+               - Success rate: {(papers_after/initial_papers*100):.1f}%
+            """
+            summary_placeholder.markdown(final_summary)
 
-            # Display final results
+            # Display sidebar summary
             st.sidebar.subheader("📊 Analysis Summary")
-            st.sidebar.markdown(f"**Initial papers found:** {papers_before}")
+            st.sidebar.markdown(f"**Initial papers found:** {initial_papers}")
             st.sidebar.markdown(f"**Papers after filtering:** {papers_after}")
             st.sidebar.markdown("**Keywords used:**")
             st.sidebar.write(results['keywords'])
@@ -140,18 +176,18 @@ def main():
             if 'quota_exceeded' in results:
                 st.warning("⚠️ OpenAI API quota exceeded. Using basic keyword extraction.")
 
-            # Display papers
-            st.subheader("📑 Final Relevant Papers")
-            for paper in filtered_papers:
-                with st.expander(f"📄 {paper['title']}"):
-                    st.write(f"**Authors:** {', '.join(paper['authors'])}")
-                    st.write(f"**Published:** {paper['published']}")
-                    st.write(f"**Abstract:** {paper['abstract']}")
-                    st.write(f"**arXiv ID:** {paper['arxiv_id']}")
-                    st.write(f"**URL:** {paper['url']}")
-                    if 'analysis' in paper:
-                        st.write(f"**Relevance Score:** {paper['analysis']['confidence']:.2f}")
-                        st.write(f"**Reason for inclusion:** {paper['analysis']['reason']}")
+            # Display final papers in a collapsible section
+            with st.expander("📑 Final Relevant Papers", expanded=True):
+                for paper in filtered_papers:
+                    with st.expander(f"📄 {paper['title']}"):
+                        st.write(f"**Authors:** {', '.join(paper['authors'])}")
+                        st.write(f"**Published:** {paper['published']}")
+                        st.write(f"**Abstract:** {paper['abstract']}")
+                        st.write(f"**arXiv ID:** {paper['arxiv_id']}")
+                        st.write(f"**URL:** {paper['url']}")
+                        if 'analysis' in paper:
+                            st.write(f"**Relevance Score:** {paper['analysis']['confidence']:.2f}")
+                            st.write(f"**Reason for inclusion:** {paper['analysis']['reason']}")
 
         except Exception as e:
             st.error(f"An error occurred while processing your request. Please try again later.")
