@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import json
 from typing import List, Dict, Any
 from openai import OpenAI
 
@@ -25,7 +26,7 @@ class AbstractFilter:
         """Analyze a single abstract using GPT-4o"""
         try:
             self._rate_limit()
-            
+
             response = self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -45,11 +46,10 @@ class AbstractFilter:
                 response_format={"type": "json_object"}
             )
 
-            result = response.choices[0].message.content
-            analysis = eval(result)  # Safe since we requested JSON format
-            
+            result = json.loads(response.choices[0].message.content)
+
             # Consider paper relevant if confidence is high enough
-            return analysis['is_relevant'] and analysis['confidence'] > 0.7
+            return result['is_relevant'] and result['confidence'] > 0.7
 
         except Exception as e:
             logging.error(f"Error analyzing abstract: {str(e)}")
@@ -60,19 +60,19 @@ class AbstractFilter:
         try:
             filtered_papers = []
             total_papers = len(papers)
-            
+
             logging.info(f"Starting to filter {total_papers} papers")
-            
+
             for i, paper in enumerate(papers, 1):
                 logging.info(f"Processing paper {i}/{total_papers}")
-                
+
                 if self._analyze_abstract(paper['abstract'], research_question):
                     filtered_papers.append(paper)
-                
+
                 # Log progress
                 if i % 10 == 0:
                     logging.info(f"Processed {i}/{total_papers} papers. "
-                               f"Kept {len(filtered_papers)} relevant papers so far.")
+                                f"Kept {len(filtered_papers)} relevant papers so far.")
 
             logging.info(f"Filtering complete. Kept {len(filtered_papers)} out of {total_papers} papers")
             return filtered_papers
