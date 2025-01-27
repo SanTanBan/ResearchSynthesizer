@@ -106,7 +106,7 @@ def main():
                 "Maximum Papers to Search",
                 min_value=0,
                 max_value=50,
-                value=20,
+                value=5,  # Changed from 20 to 5
                 help="Set the maximum number of papers to search for (between 0 and 50)"
             )
 
