@@ -26,10 +26,12 @@ class ArxivAPIClient:
             # Construct search query using OR between keywords
             query_parts = []
             for keyword in keywords:
-                # Remove any special characters that might cause issues
-                clean_keyword = keyword.replace('"', '').strip()
-                if clean_keyword:
+                # Clean and validate keywords
+                clean_keyword = keyword.replace('"', '').replace("'", "").strip()
+                if clean_keyword and len(clean_keyword) > 2:  # Ignore very short keywords
+                    # Add both exact and non-exact matches
                     query_parts.append(f'"{clean_keyword}"')
+                    query_parts.append(clean_keyword)
 
             if not query_parts:
                 logging.error("No valid keywords provided for arXiv search")
@@ -43,43 +45,36 @@ class ArxivAPIClient:
             search = arxiv.Search(
                 query=search_query,
                 max_results=max_results,
-                sort_by=arxiv.SortCriterion.Relevance
+                sort_by=arxiv.SortCriterion.Relevance,
+                sort_order=arxiv.SortOrder.Descending
             )
 
             # Execute search with pagination
             results = []
             papers_found = 0
-            try:
-                for result in self.client.results(search):
-                    papers_found += 1
-                    paper = {
-                        'title': result.title,
-                        'authors': [author.name for author in result.authors],
-                        'abstract': result.summary,
-                        'published': result.published.strftime("%Y-%m-%d"),
-                        'arxiv_id': result.entry_id.split('/')[-1],
-                        'url': result.pdf_url,
-                        'categories': result.categories
-                    }
-                    results.append(paper)
-                    logging.info(f"📄 Found paper: {paper['title']}")
 
-                    # Apply rate limiting between results
-                    if len(results) % 20 == 0:  # Rate limit every 20 papers
-                        self._rate_limit()
-                        logging.info(f"⏳ Rate limiting after {len(results)} papers...")
+            for result in self.client.results(search):
+                papers_found += 1
+                paper = {
+                    'title': result.title,
+                    'authors': [author.name for author in result.authors],
+                    'abstract': result.summary,
+                    'published': result.published.strftime("%Y-%m-%d"),
+                    'arxiv_id': result.entry_id.split('/')[-1],
+                    'url': result.pdf_url,
+                    'categories': result.categories
+                }
+                results.append(paper)
+                logging.info(f"📄 Found paper: {paper['title']}")
 
-                    if len(results) >= max_results:
-                        logging.info(f"🎯 Reached maximum results limit ({max_results})")
-                        break
+                # Apply rate limiting between results
+                if len(results) % 20 == 0:  # Rate limit every 20 papers
+                    self._rate_limit()
+                    logging.info(f"⏳ Rate limiting after {len(results)} papers...")
 
-            except Exception as e:
-                # If we got some results before the error, return them
-                if results:
-                    logging.warning(f"⚠️ Partial results retrieved due to: {str(e)}")
-                else:
-                    logging.error(f"❌ Failed to get any results: {str(e)}")
-                    raise  # Re-raise if we got no results
+                if len(results) >= max_results:
+                    logging.info(f"🎯 Reached maximum results limit ({max_results})")
+                    break
 
             logging.info(f"✅ Found {len(results)} papers for keywords: {keywords}")
             return results

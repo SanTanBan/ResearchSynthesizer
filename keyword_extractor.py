@@ -54,32 +54,44 @@ class KeywordExtractor:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a research expert. Extract 5-7 relevant keywords from the research question. Return them as a JSON array of strings."
+                        "content": ("You are a research expert. Extract 5-7 relevant keywords from the research question. "
+                                  "Respond ONLY with a JSON array of strings, nothing else. Example: [\"keyword1\", \"keyword2\"]")
                     },
                     {"role": "user", "content": research_question}
                 ]
             )
 
             # Parse the response and extract keywords
-            content = response.choices[0].message.content
-            logging.info(f"Together AI response: {content}")
+            content = response.choices[0].message.content.strip()
+            logging.info(f"Together AI raw response: {content}")
 
             try:
-                # Try to parse as pure JSON first
+                # First try to parse as pure JSON
+                if content.startswith("[") and content.endswith("]"):
+                    keywords = json.loads(content)
+                    if isinstance(keywords, list):
+                        logging.info(f"Successfully extracted keywords from JSON array: {keywords}")
+                        return keywords
+
+                # If not a direct array, try to parse as a JSON object
                 keywords = json.loads(content)
-                if isinstance(keywords, list):
-                    logging.info(f"Successfully extracted keywords from JSON: {keywords}")
-                    return keywords
                 if isinstance(keywords, dict) and 'keywords' in keywords:
-                    logging.info(f"Successfully extracted keywords from JSON dict: {keywords['keywords']}")
+                    logging.info(f"Successfully extracted keywords from JSON object: {keywords['keywords']}")
                     return keywords['keywords']
+
+                # If JSON parsed but not in expected format, try to extract from text
+                logging.warning("Response not in expected format, attempting text extraction")
+
             except json.JSONDecodeError:
-                # If not JSON, try to extract keywords from the text
-                logging.info("Parsing non-JSON response")
-                words = content.replace('[', '').replace(']', '').replace('"', '').split(',')
-                keywords = [word.strip() for word in words if word.strip()]
-                logging.info(f"Extracted keywords from text: {keywords}")
-                return keywords
+                logging.info("JSON parsing failed, falling back to text extraction")
+
+            # Text-based extraction as fallback
+            words = [w.strip(' "[]').replace('"', '') 
+                    for w in content.split(',') 
+                    if w.strip()]
+            keywords = [w for w in words if len(w) > 2]  # Filter out very short words
+            logging.info(f"Extracted keywords from text: {keywords}")
+            return keywords[:7]  # Limit to 7 keywords
 
         except Exception as e:
             logging.error(f"Error extracting keywords with Together AI: {str(e)}")
