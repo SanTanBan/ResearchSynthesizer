@@ -143,64 +143,103 @@ def main():
                 with col2:
                     st.metric("Successfully Analyzed", agg_data['successful_papers'])
 
-                # Display Key Findings
-                if agg_data['key_findings']:
-                    st.subheader("🔑 Key Findings")
-                    for finding in agg_data['key_findings']:
-                        st.write(f"• {finding}")
+                # Display Initial Paper Analysis Results
+                st.subheader("📑 Paper Analysis Results")
+                for result in pipeline_results:
+                    status_icon = "✅" if result['status'] == 'completed' else "❌"
+                    status_color = "green" if result['status'] == 'completed' else "red"
 
-                # Display Knowledge Gaps
-                if agg_data['knowledge_gaps']:
-                    st.subheader("🔍 Knowledge Gaps Identified")
-                    for gap in agg_data['knowledge_gaps']:
-                        st.write(f"• {gap}")
+                    with st.expander(f"{status_icon} Paper: {result.get('pipeline_results', {}).get('paper_metadata', {}).get('title', 'Unknown Title')}"):
+                        if result['status'] == 'completed':
+                            paper_data = result['pipeline_results']['paper_metadata']
+                            st.markdown(f"**Status:** :green[Selected for Analysis]")
 
-                # Display Hypotheses and Experimental Designs
-                st.subheader("🧪 Generated Hypotheses and Experimental Designs")
-                for i, hypothesis in enumerate(agg_data['proposed_hypotheses'], 1):
+                            # Paper Details
+                            st.markdown("### 📝 Paper Details")
+                            st.write(f"**Authors:** {', '.join(paper_data.get('authors', []))}")
+                            st.write(f"**Published:** {paper_data.get('published', 'N/A')}")
+                            st.write(f"**arXiv ID:** {paper_data.get('arxiv_id', 'N/A')}")
+                            st.write(f"**URL:** {paper_data.get('url', 'N/A')}")
+
+                            # Abstract and Analysis
+                            st.markdown("### 📌 Abstract")
+                            st.write(paper_data.get('abstract', 'No abstract available'))
+
+                            if 'abstract_analysis' in result['pipeline_results']:
+                                analysis = result['pipeline_results']['abstract_analysis']
+                                st.markdown("### 🔍 Relevance Analysis")
+                                st.write(f"**Confidence Score:** {analysis.get('confidence', 0):.2f}")
+                                st.write(f"**Reason for Selection:** {analysis.get('reason', 'No reason provided')}")
+
+                            if 'paper_analysis' in result['pipeline_results']:
+                                st.markdown("### 📊 Detailed Analysis")
+                                paper_analysis = result['pipeline_results']['paper_analysis']
+                                st.write("**Summary:**")
+                                st.write(paper_analysis.get('summary', 'No summary available'))
+
+                                if paper_analysis.get('relevant_points'):
+                                    st.write("**Key Points:**")
+                                    for point in paper_analysis['relevant_points']:
+                                        st.write(f"• {point}")
+                        else:
+                            st.markdown(f"**Status:** :red[Not Selected]")
+                            st.write(f"**Reason:** {result.get('error', 'Unknown error')}")
+
+                # Display Consolidated Hypotheses
+                st.subheader("🧪 Consolidated Hypotheses and Experimental Designs")
+
+                # Group similar hypotheses
+                all_hypotheses = []
+                for result in pipeline_results:
+                    if result['status'] == 'completed':
+                        pipeline_data = result['pipeline_results']
+                        if 'hypotheses' in pipeline_data:
+                            all_hypotheses.extend(pipeline_data['hypotheses'].get('hypotheses', []))
+
+                # Display consolidated hypotheses with their experimental designs
+                for i, hypothesis in enumerate(all_hypotheses, 1):
                     with st.expander(f"Hypothesis {i}: {hypothesis.get('hypothesis', 'Unknown')}"):
+                        st.write("**Hypothesis Statement:**")
+                        st.write(hypothesis.get('hypothesis', 'No hypothesis stated'))
+
                         st.write("**Rationale:**")
                         st.write(hypothesis.get('rationale', 'No rationale provided'))
 
-                        # Find matching experimental design
-                        matching_designs = [
-                            design for design in agg_data['experimental_designs']
-                            if design.get('hypothesis', {}).get('hypothesis') == hypothesis.get('hypothesis')
-                        ]
+                        # Find all experimental designs for this hypothesis
+                        related_designs = []
+                        for result in pipeline_results:
+                            if result['status'] == 'completed':
+                                for design in result['pipeline_results'].get('experimental_designs', []):
+                                    if design.get('hypothesis', {}).get('hypothesis') == hypothesis.get('hypothesis'):
+                                        related_designs.append(design['design'])
 
-                        if matching_designs:
-                            st.write("**Experimental Design:**")
-                            design = matching_designs[0]['design']
-                            if isinstance(design, dict) and 'experimental_design' in design:
-                                exp_design = design['experimental_design']
-                                st.write("Overview:", exp_design.get('overview', ''))
+                        if related_designs:
+                            st.markdown("### 🔬 Experimental Design")
+                            for j, design in enumerate(related_designs, 1):
+                                if isinstance(design, dict) and 'experimental_design' in design:
+                                    exp_design = design['experimental_design']
+                                    st.write(f"**Design Variation {j}:**")
+                                    st.write("Overview:", exp_design.get('overview', ''))
 
-                                st.write("**Procedures:**")
-                                for proc in exp_design.get('procedures', []):
-                                    st.write(f"• {proc}")
+                                    if exp_design.get('procedures'):
+                                        st.write("**Procedures:**")
+                                        for proc in exp_design['procedures']:
+                                            st.write(f"• {proc}")
 
-                                st.write("**Required Equipment:**")
-                                for equip in exp_design.get('required_equipment', []):
-                                    st.write(f"• {equip}")
+                                    if exp_design.get('methodologies'):
+                                        st.write("**Methodologies:**")
+                                        for method in exp_design['methodologies']:
+                                            st.write(f"• {method}")
 
-                                st.write("**Potential Challenges:**")
-                                for challenge in exp_design.get('potential_challenges', []):
-                                    st.write(f"• {challenge}")
+                                    if exp_design.get('required_equipment'):
+                                        st.write("**Required Equipment:**")
+                                        for equip in exp_design['required_equipment']:
+                                            st.write(f"• {equip}")
 
-                # Display Individual Paper Results
-                st.subheader("📑 Individual Paper Results")
-                for result in pipeline_results:
-                    if result['status'] == 'completed':
-                        with st.expander(f"📄 {result['pipeline_results']['paper_metadata']['title']}"):
-                            st.write("**Status:** ✅ Complete")
-                            if 'paper_analysis' in result['pipeline_results']:
-                                st.write("**Summary:**")
-                                st.write(result['pipeline_results']['paper_analysis'].get('summary', ''))
-                    else:
-                        with st.expander(f"📄 Paper ID: {result['paper_id']}"):
-                            st.write(f"**Status:** ❌ {result['status']}")
-                            if 'error' in result:
-                                st.error(f"Error: {result['error']}")
+                                    if exp_design.get('potential_challenges'):
+                                        st.write("**Potential Challenges:**")
+                                        for challenge in exp_design['potential_challenges']:
+                                            st.write(f"• {challenge}")
 
             else:
                 st.error("❌ No successful pipeline results to display")
