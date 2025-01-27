@@ -12,8 +12,13 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_url_path='', static_folder='static')
+# Initialize Flask app with static file configuration
+app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# Configure static files
+app.static_url_path = '/static'
+app.static_folder = 'static'
 
 # Swagger configuration
 SWAGGER_URL = '/api/docs'
@@ -27,8 +32,11 @@ swaggerui_blueprint = get_swaggerui_blueprint(
         'dom_id': '#swagger-ui',
         'deepLinking': True,
         'supportedSubmitMethods': ['get'],
+        'layout': 'BaseLayout',
+        'docExpansion': 'list',
     }
 )
+
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 # Initialize components
@@ -46,6 +54,7 @@ except Exception as e:
 def send_static(path):
     response = send_from_directory('static', path)
     response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Content-Type'] = 'application/json' if path.endswith('.json') else response.headers.get('Content-Type')
     return response
 
 @app.route('/api/research', methods=['GET'])
@@ -80,5 +89,4 @@ def get_research_papers():
 if __name__ == '__main__':
     port = 8080
     logger.info(f"Starting Flask API server on port {port}")
-    app.run(host='0.0.0.0', port=port)
-    print(f"Example URL: http://localhost:{port}/api/research?question=What+is+the+future+of+AI")
+    app.run(host='0.0.0.0', port=port, debug=True)
