@@ -73,7 +73,7 @@ class AbstractFilter:
                 }
 
             return {
-                'is_relevant': result.get('is_relevant', True) and result.get('confidence', 0) > 0.65,
+                'is_relevant': result.get('is_relevant', True) and result.get('confidence', 0) > 1/3,
                 'confidence': result.get('confidence', 0.7),
                 'reason': result.get('reason', "No specific reason provided")
             }

@@ -5,12 +5,15 @@ import requests
 import json
 from typing import List, Dict, Any
 import PyPDF2
-from openai import OpenAI
+from together import Together
+import streamlit as st
 
 class PaperAnalyzer:
     def __init__(self):
-        self.model = "gpt-3.5-turbo-1106"  # Using faster GPT-3.5 model
-        self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
+        self.together_client = None
+        if 'TOGETHER_API_KEY' in st.session_state:
+            self.together_client = Together(api_key=st.session_state['TOGETHER_API_KEY'])
         # Configure logging
         logging.basicConfig(
             level=logging.INFO,
@@ -55,18 +58,21 @@ class PaperAnalyzer:
             return ""
 
     def _analyze_paper_content(self, paper_text: str, research_question: str) -> Dict[str, Any]:
-        """Analyze paper content using OpenAI"""
+        """Analyze paper content using Together AI"""
         try:
-            # Truncate text if too long (token limit consideration)
-            max_chars = 14000  # Approximate for GPT-3.5's context window
+            if not self.together_client:
+                raise ValueError("Together AI client not initialized")
+
+            # Truncate text if too long
+            max_chars = 14000  # Approximate context window
             truncated_text = paper_text[:max_chars] if len(paper_text) > max_chars else paper_text
 
             if len(paper_text) > max_chars:
                 logging.info(f"📝 Truncating paper text from {len(paper_text)} to {max_chars} characters")
 
-            logging.info("🤖 Sending paper to OpenAI for analysis...")
+            logging.info("🤖 Sending paper to Together AI for analysis...")
 
-            response = self.openai_client.chat.completions.create(
+            response = self.together_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
@@ -86,24 +92,61 @@ Format your response as JSON with the following structure:
                         "role": "user",
                         "content": f"Research Question: {research_question}\n\nPaper Content: {truncated_text}"
                     }
-                ],
-                response_format={"type": "json_object"}
+                ]
             )
 
-            result = json.loads(response.choices[0].message.content)
-            logging.info("✅ Successfully analyzed paper content")
-            return result
+            content = response.choices[0].message.content.strip()
+            try:
+                # Try to parse as JSON
+                result = json.loads(content)
+                logging.info("✅ Successfully analyzed paper content")
+                return result
+            except json.JSONDecodeError:
+                # Handle non-JSON response by creating a structured response
+                logging.warning("Non-JSON response received, structuring response manually")
+                lines = content.split('\n')
+                summary = ""
+                points = []
+                limitations = []
+                current_section = None
+
+                for line in lines:
+                    line = line.strip()
+                    if 'summary' in line.lower():
+                        current_section = 'summary'
+                    elif 'point' in line.lower() or 'finding' in line.lower():
+                        current_section = 'points'
+                    elif 'limitation' in line.lower():
+                        current_section = 'limitations'
+                    elif line:
+                        if current_section == 'summary':
+                            summary += line + " "
+                        elif current_section == 'points':
+                            points.append(line.lstrip('*-•').strip())
+                        elif current_section == 'limitations':
+                            limitations.append(line.lstrip('*-•').strip())
+
+                return {
+                    "summary": summary.strip(),
+                    "relevant_points": points[:5],  # Limit to top 5 points
+                    "limitations": limitations[:3]  # Limit to top 3 limitations
+                }
 
         except Exception as e:
             logging.error(f"❌ Error analyzing paper content: {str(e)}")
             return {
                 "error": str(e),
                 "summary": "Error analyzing paper content",
-                "relevant_points": []
+                "relevant_points": [],
+                "limitations": []
             }
 
     def analyze_papers(self, papers: List[Dict[str, Any]], research_question: str) -> List[Dict[str, Any]]:
         """Analyze a list of papers and generate summaries"""
+        if not self.together_client:
+            logging.error("Together AI client not initialized")
+            return []
+
         paper_analyses = []
         total_papers = len(papers)
 
@@ -124,7 +167,8 @@ Format your response as JSON with the following structure:
                     'analysis': {
                         'error': 'Could not extract text from PDF',
                         'summary': 'PDF extraction failed',
-                        'relevant_points': []
+                        'relevant_points': [],
+                        'limitations': []
                     }
                 })
                 continue
