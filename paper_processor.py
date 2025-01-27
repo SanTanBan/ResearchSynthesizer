@@ -12,18 +12,18 @@ class PaperProcessor:
         self.keyword_extractor = keyword_extractor
         self.arxiv_client = arxiv_client
         self.cache_manager = cache_manager
-    
+
     def _validate_input(self, research_question: str, criteria: str) -> None:
         """Validate input parameters"""
         if not research_question or not research_question.strip():
             raise ValueError("Research question cannot be empty")
         if len(research_question) > 1000:
             raise ValueError("Research question is too long (max 1000 characters)")
-    
+
     def _filter_papers(self, papers: List[Dict[str, Any]], criteria: str) -> List[Dict[str, Any]]:
         """Filter papers based on criteria"""
         filtered_papers = papers
-        
+
         if criteria:
             # Extract year constraint if present
             if "after" in criteria.lower():
@@ -35,7 +35,7 @@ class PaperProcessor:
                     ]
                 except ValueError:
                     pass
-            
+
             # Filter for specific study types if mentioned
             study_types = ['controlled trial', 'randomized', 'double-blind']
             for study_type in study_types:
@@ -44,42 +44,57 @@ class PaperProcessor:
                         paper for paper in filtered_papers 
                         if study_type.lower() in paper['abstract'].lower()
                     ]
-        
+
         return filtered_papers
-    
+
     def process_query(self, research_question: str, criteria: str = "") -> Dict[str, Any]:
         """Process a research query and return relevant papers"""
         try:
             # Validate input
             self._validate_input(research_question, criteria)
-            
+
             # Check cache
             cache_key = f"{research_question}:{criteria}"
             cached_result = self.cache_manager.get(cache_key)
             if cached_result:
+                logging.info("Using cached result")
                 return cached_result
-            
+
             # Extract keywords
+            logging.info("Extracting keywords...")
             keywords = self.keyword_extractor.extract_keywords(research_question)
-            
+            logging.info(f"Extracted keywords: {keywords}")
+
+            if not keywords:
+                logging.error("No keywords extracted")
+                return {
+                    'papers': [],
+                    'keywords': [],
+                    'total_results': 0,
+                    'error': 'No keywords could be extracted from the research question'
+                }
+
             # Search papers
+            logging.info("Searching papers with keywords...")
             papers = self.arxiv_client.search_papers(keywords)
-            
+            logging.info(f"Found {len(papers)} papers from search")
+
             # Filter papers
             filtered_papers = self._filter_papers(papers, criteria)
-            
+            logging.info(f"After filtering: {len(filtered_papers)} papers")
+
             # Prepare response
             result = {
                 'papers': filtered_papers,
                 'keywords': keywords,
                 'total_results': len(filtered_papers)
             }
-            
+
             # Cache result
             self.cache_manager.set(cache_key, result)
-            
+
             return result
-            
+
         except Exception as e:
             logging.error(f"Error processing query: {str(e)}")
             raise
