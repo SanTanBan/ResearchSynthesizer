@@ -8,6 +8,8 @@ from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
 from abstract_filter import AbstractFilter
 from paper_analyzer import PaperAnalyzer
+from parallel_processor import ParallelProcessor
+from science_agent import ScienceAgent
 
 st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
 
@@ -96,8 +98,9 @@ def main():
         try:
             # Step 1: Initial Setup
             st.info("🚀 Starting paper discovery process...")
-            if not os.environ.get("OPENAI_API_KEY") and not 'TOGETHER_API_KEY' in st.session_state:
-                st.warning("⚠️ Neither OpenAI nor Together AI keys are set. Using basic keyword extraction.")
+            if not 'TOGETHER_API_KEY' in st.session_state:
+                st.error("⚠️ Together AI key is required for advanced analysis. Please upload your API key.")
+                return
 
             # Step 2: Search Papers with max_papers limit
             with st.spinner("📚 Searching for relevant papers..."):
@@ -105,125 +108,105 @@ def main():
                 initial_papers = len(results['papers'])
                 st.success(f"Found {initial_papers} papers based on keyword search.")
 
-            # Step 3: Filter Papers
-            st.write("🤖 Analyzing paper abstracts for relevance...")
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            filter_results = st.empty()
+            # Step 3: Initialize Parallel Processing
+            st.write("🔄 Starting parallel analysis pipelines...")
+            parallel_processor = ParallelProcessor()
 
-            papers_before = len(results['papers'])
-
-            # Create two columns for showing kept and dropped papers
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.subheader("📋 Kept Papers")
-                kept_container = st.container()
-
-            with col2:
-                st.subheader("❌ Dropped Papers")
-                dropped_container = st.container()
-
-            # Filter papers with progress updates
-            filtered_papers, analysis_results = abstract_filter.filter_papers(
-                results['papers'],
-                research_question
-            )
-
-            # Update progress bar and status for each paper
-            for i, result in enumerate(analysis_results):
-                progress = (i + 1) / len(analysis_results)
-                progress_bar.progress(progress)
-                status_text.text(f"Analyzing paper {i + 1} of {len(analysis_results)}")
-
-                # Show decision in respective column
-                if result['is_relevant']:
-                    with kept_container:
-                        st.write(f"**{result['title']}**")
-                        st.write(f"Confidence: {result['confidence']:.2f}")
-                        st.write(f"Reason: {result['reason']}")
-                        st.divider()
-                else:
-                    with dropped_container:
-                        st.write(f"**{result['title']}**")
-                        st.write(f"Confidence: {result['confidence']:.2f}")
-                        st.write(f"Reason: {result['reason']}")
-                        st.divider()
-
-            papers_after = len(filtered_papers)
-            progress_bar.empty()
-            status_text.empty()
-
-            st.success(f"✨ Analysis complete! Kept {papers_after} out of {papers_before} papers.")
-
-            # New Step: Detailed Paper Analysis
-            if filtered_papers:
-                st.write("📚 Analyzing full paper contents...")
-                paper_analyzer = PaperAnalyzer()
-
-                # Create progress tracking
-                total_papers = len(filtered_papers)
+            # Create a progress container
+            progress_container = st.container()
+            with progress_container:
                 progress_bar = st.progress(0)
                 status_text = st.empty()
 
-                # Store analyses in session state to persist between reruns
-                if 'paper_analyses' not in st.session_state:
-                    for i, analysis in enumerate(paper_analyzer.analyze_papers(filtered_papers, research_question)):
-                        if 'paper_analyses' not in st.session_state:
-                            st.session_state.paper_analyses = []
-                        st.session_state.paper_analyses.append(analysis)
-                        # Update progress
-                        progress = (i + 1) / total_papers
-                        progress_bar.progress(progress)
-                        status_text.text(f"Analyzing paper {i + 1} of {total_papers}: {analysis['title']}")
+                # Process papers in parallel
+                pipeline_results = parallel_processor.process_papers_parallel(
+                    results['papers'],
+                    research_question
+                )
 
                 # Clear progress indicators
                 progress_bar.empty()
                 status_text.empty()
 
-                # Display paper analyses
-                st.subheader("📑 Paper Analysis Results")
-                for analysis in st.session_state.paper_analyses:
-                    with st.expander(f"📄 {analysis['title']}"):
-                        if 'error' in analysis['analysis']:
-                            st.error(f"Error analyzing paper: {analysis['analysis']['error']}")
-                        else:
-                            st.write("**Summary:**")
-                            st.write(analysis['analysis']['summary'])
-                            if analysis['analysis'].get('relevant_points'):
-                                st.write("\n**Key Points:**")
-                                for point in analysis['analysis']['relevant_points']:
-                                    st.write(f"• {point}")
-                            if analysis['analysis'].get('limitations'):
-                                st.write("\n**Limitations:**")
-                                for limitation in analysis['analysis']['limitations']:
-                                    st.write(f"• {limitation}")
+            # Step 4: Aggregate Results
+            st.write("🔄 Aggregating results from all pipelines...")
+            aggregated_results = parallel_processor.aggregate_results(pipeline_results)
 
-            # Display final results
-            st.sidebar.subheader("📊 Analysis Summary")
-            st.sidebar.markdown(f"**Initial papers found:** {papers_before}")
-            st.sidebar.markdown(f"**Papers after filtering:** {papers_after}")
-            st.sidebar.markdown("**Keywords used:**")
-            st.sidebar.write(results['keywords'])
+            if aggregated_results['status'] == 'success':
+                agg_data = aggregated_results['aggregated_data']
 
-            if 'quota_exceeded' in results:
-                st.warning("⚠️ OpenAI API quota exceeded. Using basic keyword extraction.")
+                # Display Summary Statistics
+                st.subheader("📊 Analysis Summary")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Papers Processed", agg_data['total_papers_processed'])
+                with col2:
+                    st.metric("Successfully Analyzed", agg_data['successful_papers'])
 
-            # Display papers
-            st.subheader("📑 Final Relevant Papers")
-            for paper in filtered_papers:
-                with st.expander(f"📄 {paper['title']}"):
-                    st.write(f"**Authors:** {', '.join(paper['authors'])}")
-                    st.write(f"**Published:** {paper['published']}")
-                    st.write(f"**Abstract:** {paper['abstract']}")
-                    st.write(f"**arXiv ID:** {paper['arxiv_id']}")
-                    st.write(f"**URL:** {paper['url']}")
-                    if 'analysis' in paper:
-                        st.write(f"**Relevance Score:** {paper['analysis']['confidence']:.2f}")
-                        st.write(f"**Reason for inclusion:** {paper['analysis']['reason']}")
+                # Display Key Findings
+                if agg_data['key_findings']:
+                    st.subheader("🔑 Key Findings")
+                    for finding in agg_data['key_findings']:
+                        st.write(f"• {finding}")
+
+                # Display Knowledge Gaps
+                if agg_data['knowledge_gaps']:
+                    st.subheader("🔍 Knowledge Gaps Identified")
+                    for gap in agg_data['knowledge_gaps']:
+                        st.write(f"• {gap}")
+
+                # Display Hypotheses and Experimental Designs
+                st.subheader("🧪 Generated Hypotheses and Experimental Designs")
+                for i, hypothesis in enumerate(agg_data['proposed_hypotheses'], 1):
+                    with st.expander(f"Hypothesis {i}: {hypothesis.get('hypothesis', 'Unknown')}"):
+                        st.write("**Rationale:**")
+                        st.write(hypothesis.get('rationale', 'No rationale provided'))
+
+                        # Find matching experimental design
+                        matching_designs = [
+                            design for design in agg_data['experimental_designs']
+                            if design.get('hypothesis', {}).get('hypothesis') == hypothesis.get('hypothesis')
+                        ]
+
+                        if matching_designs:
+                            st.write("**Experimental Design:**")
+                            design = matching_designs[0]['design']
+                            if isinstance(design, dict) and 'experimental_design' in design:
+                                exp_design = design['experimental_design']
+                                st.write("Overview:", exp_design.get('overview', ''))
+
+                                st.write("**Procedures:**")
+                                for proc in exp_design.get('procedures', []):
+                                    st.write(f"• {proc}")
+
+                                st.write("**Required Equipment:**")
+                                for equip in exp_design.get('required_equipment', []):
+                                    st.write(f"• {equip}")
+
+                                st.write("**Potential Challenges:**")
+                                for challenge in exp_design.get('potential_challenges', []):
+                                    st.write(f"• {challenge}")
+
+                # Display Individual Paper Results
+                st.subheader("📑 Individual Paper Results")
+                for result in pipeline_results:
+                    if result['status'] == 'completed':
+                        with st.expander(f"📄 {result['pipeline_results']['paper_metadata']['title']}"):
+                            st.write("**Status:** ✅ Complete")
+                            if 'paper_analysis' in result['pipeline_results']:
+                                st.write("**Summary:**")
+                                st.write(result['pipeline_results']['paper_analysis'].get('summary', ''))
+                    else:
+                        with st.expander(f"📄 Paper ID: {result['paper_id']}"):
+                            st.write(f"**Status:** ❌ {result['status']}")
+                            if 'error' in result:
+                                st.error(f"Error: {result['error']}")
+
+            else:
+                st.error("❌ No successful pipeline results to display")
 
         except Exception as e:
-            st.error(f"An error occurred while processing your request. Please try again later.")
+            st.error(f"An error occurred while processing your request: {str(e)}")
             logging.error(f"Error in main: {str(e)}")
 
 if __name__ == "__main__":
