@@ -137,13 +137,13 @@ def main():
                 st.session_state.search_results = results
                 initial_papers = len(results['papers'])
 
-                # Display keywords in discovery process
-                st.markdown("### 🔍 Search Keywords Used")
-                st.markdown('<div class="discovery-keywords">', unsafe_allow_html=True)
-                st.write("The following keywords were extracted from your research question:")
-                for keyword in results['keywords']:
-                    st.markdown(f"• {keyword}")
-                st.markdown('</div>', unsafe_allow_html=True)
+                # Display keywords in discovery process within an expander
+                with st.expander("🔍 View Search Keywords", expanded=True):
+                    st.markdown('<div class="discovery-keywords">', unsafe_allow_html=True)
+                    st.write("The following keywords were extracted from your research question:")
+                    for keyword in results['keywords']:
+                        st.markdown(f"• {keyword}")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 st.success(f"Found {initial_papers} papers based on keyword search.")
 
