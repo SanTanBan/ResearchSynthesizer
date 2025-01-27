@@ -56,16 +56,36 @@ def main():
 
             papers_before = len(results['papers'])
 
+            # Add CSS to create scrollable containers
+            st.markdown("""
+                <style>
+                    .scrollable-container {
+                        height: 400px;
+                        overflow-y: auto;
+                        padding: 1rem;
+                        border: 1px solid #ddd;
+                        border-radius: 0.5rem;
+                        background-color: #ffffff;
+                    }
+                </style>
+            """, unsafe_allow_html=True)
+
             # Create two columns for showing kept and dropped papers
             col1, col2 = st.columns(2)
 
             with col1:
                 st.subheader("📋 Kept Papers")
-                kept_container = st.container()
+                with st.container():
+                    st.markdown('<div class="scrollable-container">', unsafe_allow_html=True)
+                    kept_container = st.empty()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             with col2:
                 st.subheader("❌ Dropped Papers")
-                dropped_container = st.container()
+                with st.container():
+                    st.markdown('<div class="scrollable-container">', unsafe_allow_html=True)
+                    dropped_container = st.empty()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             # Filter papers with progress updates
             filtered_papers, analysis_results = abstract_filter.filter_papers(
@@ -73,25 +93,34 @@ def main():
                 research_question
             )
 
+            # Prepare content for kept and dropped papers
+            kept_content = []
+            dropped_content = []
+
             # Update progress bar and status for each paper
             for i, result in enumerate(analysis_results):
                 progress = (i + 1) / len(analysis_results)
                 progress_bar.progress(progress)
                 status_text.text(f"Analyzing paper {i + 1} of {len(analysis_results)}")
 
-                # Show decision in respective column
+                # Format paper info
+                paper_info = (
+                    f"**{result['title']}**\n"
+                    f"Confidence: {result['confidence']:.2f}\n"
+                    f"Reason: {result['reason']}\n"
+                    "---\n"
+                )
+
+                # Add to respective list
                 if result['is_relevant']:
-                    with kept_container:
-                        st.write(f"**{result['title']}**")
-                        st.write(f"Confidence: {result['confidence']:.2f}")
-                        st.write(f"Reason: {result['reason']}")
-                        st.divider()
+                    kept_content.append(paper_info)
                 else:
-                    with dropped_container:
-                        st.write(f"**{result['title']}**")
-                        st.write(f"Confidence: {result['confidence']:.2f}")
-                        st.write(f"Reason: {result['reason']}")
-                        st.divider()
+                    dropped_content.append(paper_info)
+
+                # Update containers periodically
+                if i % 5 == 0 or i == len(analysis_results) - 1:
+                    kept_container.markdown('\n'.join(kept_content))
+                    dropped_container.markdown('\n'.join(dropped_content))
 
             papers_after = len(filtered_papers)
             progress_bar.empty()
