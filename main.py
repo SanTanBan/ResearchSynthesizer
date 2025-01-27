@@ -7,6 +7,7 @@ from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
 from abstract_filter import AbstractFilter
+from paper_analyzer import PaperAnalyzer #Import PaperAnalyzer
 
 st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
 
@@ -98,6 +99,49 @@ def main():
             status_text.empty()
 
             st.success(f"✨ Analysis complete! Kept {papers_after} out of {papers_before} papers.")
+
+            # New Step: Detailed Paper Analysis
+            if filtered_papers:
+                st.write("📚 Analyzing full paper contents...")
+                paper_analyzer = PaperAnalyzer()
+
+                # Create progress tracking
+                total_papers = len(filtered_papers)
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                # Store analyses in session state to persist between reruns
+                if 'paper_analyses' not in st.session_state:
+                    for i, analysis in enumerate(paper_analyzer.analyze_papers(filtered_papers, research_question)):
+                        if 'paper_analyses' not in st.session_state:
+                            st.session_state.paper_analyses = []
+                        st.session_state.paper_analyses.append(analysis)
+                        # Update progress
+                        progress = (i + 1) / total_papers
+                        progress_bar.progress(progress)
+                        status_text.text(f"Analyzing paper {i + 1} of {total_papers}: {analysis['title']}")
+
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+
+                # Display paper analyses
+                st.subheader("📑 Paper Analysis Results")
+                for analysis in st.session_state.paper_analyses:
+                    with st.expander(f"📄 {analysis['title']}"):
+                        if 'error' in analysis['analysis']:
+                            st.error(f"Error analyzing paper: {analysis['analysis']['error']}")
+                        else:
+                            st.write("**Summary:**")
+                            st.write(analysis['analysis']['summary'])
+                            if analysis['analysis'].get('relevant_points'):
+                                st.write("\n**Key Points:**")
+                                for point in analysis['analysis']['relevant_points']:
+                                    st.write(f"• {point}")
+                            if analysis['analysis'].get('limitations'):
+                                st.write("\n**Limitations:**")
+                                for limitation in analysis['analysis']['limitations']:
+                                    st.write(f"• {limitation}")
 
             # Display final results
             st.sidebar.subheader("📊 Analysis Summary")
