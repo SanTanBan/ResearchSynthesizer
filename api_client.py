@@ -8,7 +8,7 @@ class ArxivAPIClient:
         self.client = arxiv.Client()
         self.rate_limit_delay = 3  # seconds between requests
         self.last_request_time = 0
-        
+
     def _rate_limit(self):
         """Implement rate limiting"""
         current_time = time.time()
@@ -16,25 +16,28 @@ class ArxivAPIClient:
         if time_since_last_request < self.rate_limit_delay:
             time.sleep(self.rate_limit_delay - time_since_last_request)
         self.last_request_time = time.time()
-    
-    def search_papers(self, keywords: List[str], max_results: int = 50) -> List[Dict[str, Any]]:
+
+    def search_papers(self, keywords: List[str], max_results: int = 1000) -> List[Dict[str, Any]]:
         """Search papers on arXiv based on keywords"""
         try:
             self._rate_limit()
-            
+
             # Construct search query
             search_query = ' AND '.join(f'"{keyword}"' for keyword in keywords)
-            
+
             # Create search parameters
             search = arxiv.Search(
                 query=search_query,
                 max_results=max_results,
                 sort_by=arxiv.SortCriterion.Relevance
             )
-            
-            # Execute search
+
+            # Execute search with pagination
             results = []
             for result in self.client.results(search):
+                if len(results) >= max_results:
+                    break
+
                 paper = {
                     'title': result.title,
                     'authors': [author.name for author in result.authors],
@@ -45,9 +48,14 @@ class ArxivAPIClient:
                     'categories': result.categories
                 }
                 results.append(paper)
-            
+
+                # Apply rate limiting between batches
+                if len(results) % 100 == 0:
+                    self._rate_limit()
+
+            logging.info(f"Found {len(results)} papers for keywords: {keywords}")
             return results
-            
+
         except Exception as e:
             logging.error(f"Error searching arXiv: {str(e)}")
             raise Exception(f"Failed to search arXiv: {str(e)}")
