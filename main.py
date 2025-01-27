@@ -27,6 +27,24 @@ st.markdown("""
         border-radius: 0.5rem;
         margin: 1rem 0;
     }
+    .exp-design-header {
+        font-size: 1.3rem !important;
+        font-weight: bold !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1rem !important;
+        color: #1f1f1f !important;
+    }
+    .exp-design-subheader {
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        margin-top: 1.2rem !important;
+        margin-bottom: 0.8rem !important;
+        color: #2c2c2c !important;
+    }
+    .exp-design-bullet {
+        margin-left: 2rem !important;
+        margin-bottom: 0.5rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -286,38 +304,39 @@ def main():
                             if isinstance(design, dict) and 'experimental_design' in design:
                                 exp_design = design['experimental_design']
                                 with st.expander(f"Experimental Design Variation {j}"):
-                                    st.write("**Overview:**")
+                                    st.markdown('<p class="exp-design-header">Overview</p>', unsafe_allow_html=True)
                                     st.write(exp_design.get('overview', ''))
 
                                     if exp_design.get('procedures'):
-                                        st.write("**Detailed Procedures:**")
+                                        st.markdown('<p class="exp-design-subheader">Detailed Procedures</p>', unsafe_allow_html=True)
                                         for proc in exp_design['procedures']:
-                                            st.write(f"• {proc}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {proc}</p>', unsafe_allow_html=True)
 
                                     if exp_design.get('methodologies'):
-                                        st.write("**Required Methodologies:**")
+                                        st.markdown('<p class="exp-design-subheader">Required Methodologies</p>', unsafe_allow_html=True)
                                         for method in exp_design['methodologies']:
-                                            st.write(f"• {method}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {method}</p>', unsafe_allow_html=True)
 
                                     if exp_design.get('required_equipment'):
-                                        st.write("**Required Equipment and Resources:**")
+                                        st.markdown('<p class="exp-design-subheader">Required Equipment and Resources</p>', unsafe_allow_html=True)
                                         for equip in exp_design['required_equipment']:
-                                            st.write(f"• {equip}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {equip}</p>', unsafe_allow_html=True)
 
                                     if exp_design.get('controls'):
-                                        st.write("**Control Measures:**")
+                                        st.markdown('<p class="exp-design-subheader">Control Measures</p>', unsafe_allow_html=True)
                                         for control in exp_design['controls']:
-                                            st.write(f"• {control}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {control}</p>', unsafe_allow_html=True)
 
                                     if exp_design.get('potential_challenges'):
-                                        st.write("**Potential Challenges and Mitigation Strategies:**")
+                                        st.markdown('<p class="exp-design-subheader">Potential Challenges and Mitigation Strategies</p>', unsafe_allow_html=True)
                                         for challenge in exp_design['potential_challenges']:
-                                            st.write(f"• {challenge}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {challenge}</p>', unsafe_allow_html=True)
 
                                     if exp_design.get('expected_outcomes'):
-                                        st.write("**Expected Outcomes and Success Metrics:**")
+                                        st.markdown('<p class="exp-design-subheader">Expected Outcomes and Success Metrics</p>', unsafe_allow_html=True)
                                         for outcome in exp_design['expected_outcomes']:
-                                            st.write(f"• {outcome}")
+                                            st.markdown(f'<p class="exp-design-bullet">• {outcome}</p>', unsafe_allow_html=True)
+
                     else:
                         st.warning("No hypotheses generated from the analysis.")
 
