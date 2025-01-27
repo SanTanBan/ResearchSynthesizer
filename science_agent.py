@@ -105,6 +105,8 @@ Respond with JSON in the format:
 1. Design detailed experimental procedures
 2. Specify required methodologies and techniques
 3. Identify potential challenges and controls
+4. Analyze research novelty and impact
+5. Specify required bioinformatics tools and datasets
 Respond with JSON in the format:
 {
     "experimental_design": {
@@ -114,7 +116,15 @@ Respond with JSON in the format:
         "required_equipment": ["equipment1", "equipment2"],
         "controls": ["control1", "control2"],
         "potential_challenges": ["challenge1", "challenge2"],
-        "expected_outcomes": ["outcome1", "outcome2"]
+        "expected_outcomes": ["outcome1", "outcome2"],
+        "novelty_analysis": [
+            "Point about research novelty",
+            "Potential impact on field"
+        ],
+        "bioinformatics_tools": [
+            "Required tool/dataset and its purpose",
+            "Data processing requirements"
+        ]
     }
 }"""
                     },
@@ -140,7 +150,9 @@ Respond with JSON in the format:
                     "required_equipment": [],
                     "controls": [],
                     "potential_challenges": ["API rate limiting encountered"],
-                    "expected_outcomes": []
+                    "expected_outcomes": [],
+                    "novelty_analysis": [],
+                    "bioinformatics_tools": []
                 }
             }
 

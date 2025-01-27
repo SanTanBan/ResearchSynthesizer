@@ -17,89 +17,89 @@ class ParallelProcessor:
 
     def process_paper_pipeline(self, paper: Dict[str, Any], research_question: str) -> Dict[str, Any]:
         """Process a single paper through the complete pipeline"""
-        try:
-            paper_id = paper.get('arxiv_id', 'unknown')
-            title = paper.get('title', 'Unknown Title')
-            logging.info(f"🔄 Starting pipeline for paper {paper_id}: {title}")
+        max_retries = 3
+        base_delay = 10  # Start with 10 seconds delay
+        paper_id = paper.get('arxiv_id', 'unknown')
+        title = paper.get('title', 'Unknown Title')
 
-            # Step 1: Abstract Analysis
-            abstract_analysis = self.abstract_filter._analyze_abstract(
-                paper['abstract'], 
-                research_question
-            )
-
-            if not abstract_analysis.get('is_relevant', False):
-                logging.info(f"❌ Paper {paper_id} marked as irrelevant, stopping pipeline")
-                return {
-                    'paper_id': paper_id,
-                    'status': 'filtered_out',
-                    'reason': abstract_analysis.get('reason', 'Not relevant to research question'),
-                    'pipeline_results': None
-                }
-
-            # Step 2: Full Paper Analysis with timeout
+        for attempt in range(max_retries):
             try:
+                logging.info(f"🔄 Starting pipeline for paper {paper_id}: {title} (Attempt {attempt + 1}/{max_retries})")
+
+                # Step 1: Abstract Analysis
+                abstract_analysis = self.abstract_filter._analyze_abstract(
+                    paper['abstract'], 
+                    research_question
+                )
+
+                if not abstract_analysis.get('is_relevant', False):
+                    logging.info(f"❌ Paper {paper_id} marked as irrelevant, stopping pipeline")
+                    return {
+                        'paper_id': paper_id,
+                        'status': 'filtered_out',
+                        'reason': abstract_analysis.get('reason', 'Not relevant to research question'),
+                        'pipeline_results': None
+                    }
+
+                # Step 2: Full Paper Analysis
                 paper_analysis = self.paper_analyzer._analyze_paper_content(
                     paper.get('full_text', paper['abstract']),
                     research_question
                 )
-            except Exception as e:
-                logging.error(f"Error in paper analysis for {paper_id}: {str(e)}")
-                paper_analysis = {
-                    'summary': 'Analysis failed',
-                    'relevant_points': [],
-                    'limitations': []
-                }
 
-            # Step 3: Hypothesis Generation with timeout
-            try:
+                if not paper_analysis or 'error' in paper_analysis:
+                    raise Exception("Paper analysis failed")
+
+                # Step 3: Hypothesis Generation
                 hypotheses = self.science_agent.generate_hypothesis(
                     paper.get('full_text', paper['abstract']),
                     research_question
                 )
-            except Exception as e:
-                logging.error(f"Error in hypothesis generation for {paper_id}: {str(e)}")
-                hypotheses = {
-                    'hypotheses': [],
-                    'knowledge_gaps': []
-                }
 
-            # Step 4: Experimental Design with timeout
-            experimental_designs = []
-            for hypothesis in hypotheses.get('hypotheses', []):
-                if isinstance(hypothesis, dict) and 'hypothesis' in hypothesis:
-                    try:
+                if not hypotheses or 'error' in hypotheses:
+                    raise Exception("Hypothesis generation failed")
+
+                # Step 4: Experimental Design
+                experimental_designs = []
+                for hypothesis in hypotheses.get('hypotheses', []):
+                    if isinstance(hypothesis, dict) and 'hypothesis' in hypothesis:
                         design = self.science_agent.design_experiments(
                             hypothesis['hypothesis'],
                             paper.get('full_text', paper['abstract'])
                         )
-                        experimental_designs.append({
-                            'hypothesis': hypothesis,
-                            'design': design
-                        })
-                    except Exception as e:
-                        logging.error(f"Error in experimental design for {paper_id}: {str(e)}")
+                        if design and 'error' not in design:
+                            experimental_designs.append({
+                                'hypothesis': hypothesis,
+                                'design': design
+                            })
 
-            return {
-                'paper_id': paper_id,
-                'status': 'completed',
-                'pipeline_results': {
-                    'paper_metadata': paper,
-                    'abstract_analysis': abstract_analysis,
-                    'paper_analysis': paper_analysis,
-                    'hypotheses': hypotheses,
-                    'experimental_designs': experimental_designs
+                # If we reach here, all steps completed successfully
+                return {
+                    'paper_id': paper_id,
+                    'status': 'completed',
+                    'pipeline_results': {
+                        'paper_metadata': paper,
+                        'abstract_analysis': abstract_analysis,
+                        'paper_analysis': paper_analysis,
+                        'hypotheses': hypotheses,
+                        'experimental_designs': experimental_designs
+                    }
                 }
-            }
 
-        except Exception as e:
-            logging.error(f"❌ Error in pipeline for {paper_id}: {str(e)}")
-            return {
-                'paper_id': paper_id,
-                'status': 'error',
-                'error': str(e),
-                'pipeline_results': None
-            }
+            except Exception as e:
+                logging.error(f"❌ Error in pipeline for {paper_id} (Attempt {attempt + 1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)  # Exponential backoff
+                    logging.info(f"Waiting {delay} seconds before retry...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    return {
+                        'paper_id': paper_id,
+                        'status': 'error',
+                        'error': str(e),
+                        'pipeline_results': None
+                    }
 
     def process_papers_parallel(self, papers: List[Dict[str, Any]], research_question: str) -> List[Dict[str, Any]]:
         """Process multiple papers in parallel with timeout"""

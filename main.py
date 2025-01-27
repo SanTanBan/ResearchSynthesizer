@@ -14,7 +14,7 @@ from science_agent import ScienceAgent
 # Set page config before any other st commands
 st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
 
-# Custom CSS to reduce title size and add keyword display style
+# Update CSS styles
 st.markdown("""
 <style>
     .stTitle {
@@ -28,22 +28,21 @@ st.markdown("""
         margin: 1rem 0;
     }
     .exp-design-header {
-        font-size: 1.3rem !important;
+        font-size: 1.5rem !important;
         font-weight: bold !important;
-        margin-top: 1.5rem !important;
-        margin-bottom: 1rem !important;
-        color: #1f1f1f !important;
+        margin-top: 1.8rem !important;
+        margin-bottom: 1.2rem !important;
     }
     .exp-design-subheader {
-        font-size: 1.1rem !important;
+        font-size: 1.3rem !important;
         font-weight: 600 !important;
-        margin-top: 1.2rem !important;
-        margin-bottom: 0.8rem !important;
-        color: #2c2c2c !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1rem !important;
     }
     .exp-design-bullet {
-        margin-left: 2rem !important;
-        margin-bottom: 0.5rem !important;
+        margin-left: 2.5rem !important;
+        margin-bottom: 0.7rem !important;
+        font-size: 1.1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -336,6 +335,17 @@ def main():
                                         st.markdown('<p class="exp-design-subheader">Expected Outcomes and Success Metrics</p>', unsafe_allow_html=True)
                                         for outcome in exp_design['expected_outcomes']:
                                             st.markdown(f'<p class="exp-design-bullet">• {outcome}</p>', unsafe_allow_html=True)
+
+                                    if exp_design.get('novelty_analysis'):
+                                        st.markdown('<p class="exp-design-subheader">Research Novelty Analysis</p>', unsafe_allow_html=True)
+                                        for point in exp_design['novelty_analysis']:
+                                            st.markdown(f'<p class="exp-design-bullet">• {point}</p>', unsafe_allow_html=True)
+
+                                    if exp_design.get('bioinformatics_tools'):
+                                        st.markdown('<p class="exp-design-subheader">Required Bioinformatics Tools and Datasets</p>', unsafe_allow_html=True)
+                                        for tool in exp_design['bioinformatics_tools']:
+                                            st.markdown(f'<p class="exp-design-bullet">• {tool}</p>', unsafe_allow_html=True)
+
 
                     else:
                         st.warning("No hypotheses generated from the analysis.")
