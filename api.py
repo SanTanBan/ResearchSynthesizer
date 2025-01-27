@@ -1,70 +1,25 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_swagger_ui import get_swaggerui_blueprint
 from paper_processor import PaperProcessor
 from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
 import logging
-import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Configure static files - this must come before Swagger UI setup
-app.static_url_path = ''  # Empty string for root path
-app.static_folder = 'static'
-
-# Swagger configuration
-SWAGGER_URL = '/api/docs'  # Swagger UI path
-API_URL = '/swagger.json'  # URL for swagger.json file
-
-swaggerui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL,
-    API_URL,
-    config={
-        'app_name': "Research Paper Discovery System API",
-        'dom_id': '#swagger-ui',
-        'deepLinking': True,
-        'supportedSubmitMethods': ['get'],
-        'layout': 'BaseLayout',
-        'docExpansion': 'list',
-    }
-)
-
-# Register blueprint for Swagger UI
-app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
-
 # Initialize components
-try:
-    cache_manager = CacheManager()
-    keyword_extractor = KeywordExtractor()
-    arxiv_client = ArxivAPIClient()
-    paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
-    logger.info("All components initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize components: {str(e)}")
-    raise
-
-@app.route('/swagger.json')
-def send_swagger_json():
-    return send_from_directory('static', 'swagger.json')
-
-@app.route('/static/<path:path>')
-def send_static(path):
-    response = send_from_directory('static', path)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Content-Type'] = 'application/json' if path.endswith('.json') else response.headers.get('Content-Type')
-    return response
+cache_manager = CacheManager()
+keyword_extractor = KeywordExtractor()
+arxiv_client = ArxivAPIClient()
+paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
 
 @app.route('/api/research', methods=['GET'])
 def get_research_papers():
-    """Get research papers based on a question and optional criteria"""
     try:
         # Get parameters from request
         research_question = request.args.get('question', '')
@@ -85,13 +40,11 @@ def get_research_papers():
         })
 
     except Exception as e:
-        logger.error(f"API Error: {str(e)}")
+        logging.error(f"API Error: {str(e)}")
         return jsonify({
             'status': 'error',
             'error': str(e)
         }), 500
 
 if __name__ == '__main__':
-    port = 8080
-    logger.info(f"Starting Flask API server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=8000)
