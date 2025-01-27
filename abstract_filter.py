@@ -7,9 +7,7 @@ from openai import OpenAI
 
 class AbstractFilter:
     def __init__(self):
-        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-        # do not change this unless explicitly requested by the user
-        self.model = "gpt-4o"
+        self.model = "gpt-3.5-turbo-1106"  # Using faster GPT-3.5 model
         self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.rate_limit_delay = 1  # seconds between requests
         self.last_request_time = 0
@@ -23,7 +21,7 @@ class AbstractFilter:
         self.last_request_time = time.time()
 
     def _analyze_abstract(self, abstract: str, research_question: str) -> bool:
-        """Analyze a single abstract using GPT-4o"""
+        """Analyze a single abstract using GPT-3.5"""
         try:
             self._rate_limit()
 
@@ -48,8 +46,8 @@ class AbstractFilter:
 
             result = json.loads(response.choices[0].message.content)
 
-            # Consider paper relevant if confidence is high enough
-            return result['is_relevant'] and result['confidence'] > 0.7
+            # Adjust threshold for GPT-3.5
+            return result['is_relevant'] and result['confidence'] > 0.65
 
         except Exception as e:
             logging.error(f"Error analyzing abstract: {str(e)}")
