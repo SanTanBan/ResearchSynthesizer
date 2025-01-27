@@ -6,6 +6,7 @@ from paper_processor import PaperProcessor
 from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
+from abstract_filter import AbstractFilter
 
 st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
 
@@ -17,6 +18,7 @@ def main():
     keyword_extractor = KeywordExtractor()
     arxiv_client = ArxivAPIClient()
     paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
+    abstract_filter = AbstractFilter()
 
     # Input form
     with st.form("research_query_form"):
@@ -31,6 +33,11 @@ def main():
             placeholder="Example: only double-blind controlled trials, published after 2020"
         )
 
+        use_filter = st.checkbox(
+            "Use AI to filter relevant papers",
+            help="Use GPT-4o to analyze abstracts and keep only relevant papers"
+        )
+
         submitted = st.form_submit_button("Search Papers")
 
     if submitted:
@@ -40,6 +47,16 @@ def main():
                     st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
 
                 results = paper_processor.process_query(research_question, criteria)
+
+                if use_filter:
+                    with st.spinner("Analyzing abstracts for relevance..."):
+                        papers_before = len(results['papers'])
+                        results['papers'] = abstract_filter.filter_papers(
+                            results['papers'], 
+                            research_question
+                        )
+                        papers_after = len(results['papers'])
+                        st.info(f"AI filter kept {papers_after} relevant papers out of {papers_before} papers.")
 
                 # Display keywords first
                 st.sidebar.subheader("Extracted Keywords")
