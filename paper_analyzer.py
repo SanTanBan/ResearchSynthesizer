@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 import PyPDF2
 from together import Together
 import streamlit as st
+import time
 
 class PaperAnalyzer:
     def __init__(self):
@@ -72,6 +73,9 @@ class PaperAnalyzer:
 
             logging.info("🤖 Sending paper to Together AI for analysis...")
 
+            # Add delay for rate limiting
+            time.sleep(3)  # 3 second delay between requests
+
             response = self.together_client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -81,24 +85,29 @@ class PaperAnalyzer:
 1. Extract key points that specifically address the research question
 2. Provide a concise summary focused on relevant findings
 3. Highlight any limitations or caveats
-Format your response as JSON with the following structure:
+Format your response as a JSON with the following structure:
 {
     "summary": "Brief overview of relevant findings",
     "relevant_points": ["Point 1", "Point 2", ...],
     "limitations": ["Limitation 1", "Limitation 2", ...]
-}"""
+}
+IMPORTANT: Always include a summary, even if brief."""
                     },
                     {
                         "role": "user",
                         "content": f"Research Question: {research_question}\n\nPaper Content: {truncated_text}"
                     }
-                ]
+                ],
+                temperature=0.7,  # Added temperature for more reliable formatting
+                max_tokens=1000   # Limit response size
             )
 
             content = response.choices[0].message.content.strip()
             try:
                 # Try to parse as JSON
                 result = json.loads(content)
+                if not result.get('summary'):
+                    result['summary'] = "Summary could not be generated. Please see key points for main findings."
                 logging.info("✅ Successfully analyzed paper content")
                 return result
             except json.JSONDecodeError:
@@ -126,6 +135,9 @@ Format your response as JSON with the following structure:
                         elif current_section == 'limitations':
                             limitations.append(line.lstrip('*-•').strip())
 
+                if not summary.strip():
+                    summary = "Summary could not be generated. Please see key points for main findings."
+
                 return {
                     "summary": summary.strip(),
                     "relevant_points": points[:5],  # Limit to top 5 points
@@ -135,10 +147,9 @@ Format your response as JSON with the following structure:
         except Exception as e:
             logging.error(f"❌ Error analyzing paper content: {str(e)}")
             return {
-                "error": str(e),
-                "summary": "Error analyzing paper content",
-                "relevant_points": [],
-                "limitations": []
+                "summary": "Analysis encountered an error. Please see key points for available findings.",
+                "relevant_points": ["Could not generate detailed analysis due to API limitations"],
+                "limitations": ["Analysis was limited due to technical constraints"]
             }
 
     def analyze_papers(self, papers: List[Dict[str, Any]], research_question: str) -> List[Dict[str, Any]]:
@@ -184,7 +195,6 @@ Format your response as JSON with the following structure:
 
             # Add a small delay between papers
             if i < total_papers:
-                import time
                 time.sleep(2)  # Rate limiting
                 logging.info(f"⏳ Waiting 2 seconds before processing next paper...")
 
