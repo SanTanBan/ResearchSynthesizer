@@ -12,7 +12,7 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='', static_folder='static')
 CORS(app)  # Enable CORS for all routes
 
 # Swagger configuration
@@ -23,7 +23,10 @@ swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
     config={
-        'app_name': "Research Paper Discovery System API"
+        'app_name': "Research Paper Discovery System API",
+        'dom_id': '#swagger-ui',
+        'deepLinking': True,
+        'supportedSubmitMethods': ['get'],
     }
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
@@ -41,7 +44,9 @@ except Exception as e:
 
 @app.route('/static/<path:path>')
 def send_static(path):
-    return send_from_directory('static', path)
+    response = send_from_directory('static', path)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/api/research', methods=['GET'])
 def get_research_papers():
