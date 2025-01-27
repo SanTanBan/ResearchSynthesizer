@@ -10,6 +10,7 @@ from abstract_filter import AbstractFilter
 from paper_analyzer import PaperAnalyzer
 from parallel_processor import ParallelProcessor
 from science_agent import ScienceAgent
+from utils import load_together_api_key
 
 # Set page config before any other st commands
 st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
@@ -47,24 +48,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def handle_together_api_key(uploaded_file):
-    """Process uploaded Together AI API key file"""
-    if uploaded_file is not None:
-        try:
-            # Read the docx file
-            doc_bytes = uploaded_file.read()
-            with open("temp.docx", "wb") as f:
-                f.write(doc_bytes)
-            from docx import Document
-            doc = Document("temp.docx")
-            api_key = " ".join(paragraph.text for paragraph in doc.paragraphs)
-            os.remove("temp.docx")  # Clean up
-            st.session_state['TOGETHER_API_KEY'] = api_key
-            return True
-        except Exception as e:
-            st.error(f"Error processing API key file: {str(e)}")
-            return False
-    return False
 
 def main():
     try:
@@ -76,37 +59,29 @@ def main():
         if 'search_results' not in st.session_state:
             st.session_state.search_results = None
 
+        # Load API key at startup
+        api_key = load_together_api_key()
+        if api_key:
+            st.session_state['TOGETHER_API_KEY'] = api_key
+        else:
+            st.error("Unable to load Together AI API key. Please check the api_key.docx file.")
+            return
+
         # Sidebar for configuration
         with st.sidebar:
-            st.subheader("🔑 API Configuration")
-
-            # Together AI API Key Upload
-            st.markdown("""
-            #### Upload Together AI API Key
-            Please upload a .docx file containing **only** your Together AI API key.
-            The file should contain nothing else but the API key text.
-            """)
-            uploaded_file = st.file_uploader("Upload API Key (docx)", type=['docx'])
-            if uploaded_file:
-                if handle_together_api_key(uploaded_file):
-                    st.success("Together AI API key loaded successfully!")
-
-            # Model Selection
             st.subheader("🤖 Model Configuration")
-            selected_model = None
-            if 'TOGETHER_API_KEY' in st.session_state:
-                models = KeywordExtractor.TOGETHER_MODELS
-                use_together = st.checkbox("Use Together AI", value=True)
-                if use_together:
-                    selected_model = st.selectbox("Select Together AI Model", models)
+            models = KeywordExtractor.TOGETHER_MODELS
+            use_together = st.checkbox("Use Together AI", value=True)
+            if use_together:
+                selected_model = st.selectbox("Select Together AI Model", models)
 
             # Paper Limit Control
             st.subheader("📚 Search Configuration")
             max_papers = st.slider(
                 "Maximum Papers to Search",
                 min_value=0,
-                max_value=25,  # Changed from 50 to 25
-                value=5,  # Default value of 5 papers
+                max_value=25,
+                value=5,
                 help="Set the maximum number of papers to search for (between 0 and 25)"
             )
 
@@ -117,7 +92,7 @@ def main():
                 st.write(st.session_state.search_results.get('keywords', []))
 
             # Add MVP attribution at the bottom of sidebar
-            st.sidebar.markdown("---")  # Add a separator line
+            st.sidebar.markdown("---")
             st.sidebar.markdown(
                 "The [Scigent](https://x.com/TheSciGent) app has been developed as the first MVP for the ZuGrama Buildathon by the "
                 "[openALErs](https://github.com/ZuGrama/ai/issues/2#issuecomment-2612234476) team.",
