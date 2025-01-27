@@ -47,14 +47,17 @@ class PaperProcessor:
 
         return filtered_papers
 
-    def process_query(self, research_question: str, criteria: str = "") -> Dict[str, Any]:
+    def process_query(self, research_question: str, criteria: str = "", max_papers: int = 20) -> Dict[str, Any]:
         """Process a research query and return relevant papers"""
         try:
             # Validate input
             self._validate_input(research_question, criteria)
 
+            # Validate max_papers
+            max_papers = max(3, min(49, max_papers))  # Ensure it's between 3 and 49
+
             # Check cache
-            cache_key = f"{research_question}:{criteria}"
+            cache_key = f"{research_question}:{criteria}:{max_papers}"
             cached_result = self.cache_manager.get(cache_key)
             if cached_result:
                 logging.info("Using cached result")
@@ -74,9 +77,9 @@ class PaperProcessor:
                     'error': 'No keywords could be extracted from the research question'
                 }
 
-            # Search papers
-            logging.info("Searching papers with keywords...")
-            papers = self.arxiv_client.search_papers(keywords)
+            # Search papers with max_papers limit
+            logging.info(f"Searching papers with keywords (limit: {max_papers})...")
+            papers = self.arxiv_client.search_papers(keywords, max_papers)
             logging.info(f"Found {len(papers)} papers from search")
 
             # Filter papers

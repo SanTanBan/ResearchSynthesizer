@@ -57,6 +57,16 @@ def main():
             if use_together:
                 selected_model = st.selectbox("Select Together AI Model", models)
 
+        # Paper Limit Control
+        st.subheader("📚 Search Configuration")
+        max_papers = st.slider(
+            "Maximum Papers to Search",
+            min_value=3,
+            max_value=49,
+            value=20,
+            help="Set the maximum number of papers to search for (between 3 and 49)"
+        )
+
     # Initialize components
     cache_manager = CacheManager()
     keyword_extractor = KeywordExtractor()
@@ -89,9 +99,9 @@ def main():
             if not os.environ.get("OPENAI_API_KEY") and not 'TOGETHER_API_KEY' in st.session_state:
                 st.warning("⚠️ Neither OpenAI nor Together AI keys are set. Using basic keyword extraction.")
 
-            # Step 2: Search Papers
+            # Step 2: Search Papers with max_papers limit
             with st.spinner("📚 Searching for relevant papers..."):
-                results = paper_processor.process_query(research_question, criteria)
+                results = paper_processor.process_query(research_question, criteria, max_papers)
                 initial_papers = len(results['papers'])
                 st.success(f"Found {initial_papers} papers based on keyword search.")
 
@@ -116,7 +126,7 @@ def main():
 
             # Filter papers with progress updates
             filtered_papers, analysis_results = abstract_filter.filter_papers(
-                results['papers'], 
+                results['papers'],
                 research_question
             )
 
