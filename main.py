@@ -13,14 +13,15 @@ from science_agent import ScienceAgent
 from utils import load_together_api_key
 
 # Set page config before any other st commands
-st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
+st.set_page_config(page_title="Novel Research-Hypothesis Discovery & Consolidation, and Experimentation Design with Approach & Methodology", layout="wide")
 
 # Update CSS styles
 st.markdown("""
 <style>
     .stTitle {
-        font-size: 1.2rem !important;
+        font-size: 1rem !important;
         margin-bottom: 1rem !important;
+        line-height: 1.4 !important;
     }
     .discovery-keywords {
         background-color: #f0f2f6;
@@ -71,7 +72,7 @@ def handle_together_api_key(uploaded_file):
 
 def main():
     try:
-        st.title("Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology")
+        st.title("Novel Research-Hypothesis Discovery & Consolidation, and Experimentation Design with Approach & Methodology")
 
         # Initialize session state for results
         if 'pipeline_results' not in st.session_state:
