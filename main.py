@@ -119,7 +119,7 @@ def main():
             # Add MVP attribution at the bottom of sidebar
             st.sidebar.markdown("---")  # Add a separator line
             st.sidebar.markdown(
-                "[TheScigent](https://x.com/TheSciGent) has been developed as the first MVP for the ZuGrama Buildathon by the "
+                "The [TheScigent](https://x.com/TheSciGent) app has been developed as the first MVP for the ZuGrama Buildathon by the "
                 "[openALErs](https://github.com/ZuGrama/ai/issues/2#issuecomment-2612234476) team.",
                 unsafe_allow_html=True
             )
