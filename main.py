@@ -196,50 +196,86 @@ def main():
                         if 'hypotheses' in pipeline_data:
                             all_hypotheses.extend(pipeline_data['hypotheses'].get('hypotheses', []))
 
-                # Display consolidated hypotheses with their experimental designs
-                for i, hypothesis in enumerate(all_hypotheses, 1):
-                    with st.expander(f"Hypothesis {i}: {hypothesis.get('hypothesis', 'Unknown')}"):
-                        st.write("**Hypothesis Statement:**")
-                        st.write(hypothesis.get('hypothesis', 'No hypothesis stated'))
+                # Create hypothesis selection
+                st.markdown("### 📌 Select a Hypothesis for Detailed Experimental Design")
+                hypothesis_options = [f"Hypothesis {i+1}: {h['hypothesis']}" for i, h in enumerate(all_hypotheses)]
+                if hypothesis_options:
+                    selected_hypothesis_idx = st.selectbox(
+                        "Choose a hypothesis to explore:",
+                        range(len(hypothesis_options)),
+                        format_func=lambda x: hypothesis_options[x]
+                    )
 
-                        st.write("**Rationale:**")
-                        st.write(hypothesis.get('rationale', 'No rationale provided'))
+                    # Display selected hypothesis details
+                    selected_hypothesis = all_hypotheses[selected_hypothesis_idx]
+                    st.markdown("### 🔍 Selected Hypothesis Details")
+                    st.markdown("""
+                    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px;">
+                    """, unsafe_allow_html=True)
+                    st.write("**Hypothesis Statement:**")
+                    st.write(selected_hypothesis.get('hypothesis', 'No hypothesis stated'))
 
-                        # Find all experimental designs for this hypothesis
-                        related_designs = []
-                        for result in pipeline_results:
-                            if result['status'] == 'completed':
-                                for design in result['pipeline_results'].get('experimental_designs', []):
-                                    if design.get('hypothesis', {}).get('hypothesis') == hypothesis.get('hypothesis'):
-                                        related_designs.append(design['design'])
+                    st.write("**Scientific Rationale:**")
+                    st.write(selected_hypothesis.get('rationale', 'No rationale provided'))
 
-                        if related_designs:
-                            st.markdown("### 🔬 Experimental Design")
-                            for j, design in enumerate(related_designs, 1):
-                                if isinstance(design, dict) and 'experimental_design' in design:
-                                    exp_design = design['experimental_design']
-                                    st.write(f"**Design Variation {j}:**")
-                                    st.write("Overview:", exp_design.get('overview', ''))
+                    if 'supporting_evidence' in selected_hypothesis:
+                        st.write("**Supporting Evidence:**")
+                        for evidence in selected_hypothesis['supporting_evidence']:
+                            st.write(f"• {evidence}")
+
+                    if 'potential_impact' in selected_hypothesis:
+                        st.write("**Potential Impact:**")
+                        st.write(selected_hypothesis.get('potential_impact', ''))
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # Find experimental designs for selected hypothesis
+                    st.markdown("### 🧪 Experimental Design")
+                    related_designs = []
+                    for result in pipeline_results:
+                        if result['status'] == 'completed':
+                            for design in result['pipeline_results'].get('experimental_designs', []):
+                                if design.get('hypothesis', {}).get('hypothesis') == selected_hypothesis.get('hypothesis'):
+                                    related_designs.append(design['design'])
+
+                    if related_designs:
+                        for j, design in enumerate(related_designs, 1):
+                            if isinstance(design, dict) and 'experimental_design' in design:
+                                exp_design = design['experimental_design']
+                                with st.expander(f"Experimental Design Variation {j}"):
+                                    st.write("**Overview:**")
+                                    st.write(exp_design.get('overview', ''))
 
                                     if exp_design.get('procedures'):
-                                        st.write("**Procedures:**")
+                                        st.write("**Detailed Procedures:**")
                                         for proc in exp_design['procedures']:
                                             st.write(f"• {proc}")
 
                                     if exp_design.get('methodologies'):
-                                        st.write("**Methodologies:**")
+                                        st.write("**Required Methodologies:**")
                                         for method in exp_design['methodologies']:
                                             st.write(f"• {method}")
 
                                     if exp_design.get('required_equipment'):
-                                        st.write("**Required Equipment:**")
+                                        st.write("**Required Equipment and Resources:**")
                                         for equip in exp_design['required_equipment']:
                                             st.write(f"• {equip}")
 
+                                    if exp_design.get('controls'):
+                                        st.write("**Control Measures:**")
+                                        for control in exp_design['controls']:
+                                            st.write(f"• {control}")
+
                                     if exp_design.get('potential_challenges'):
-                                        st.write("**Potential Challenges:**")
+                                        st.write("**Potential Challenges and Mitigation Strategies:**")
                                         for challenge in exp_design['potential_challenges']:
                                             st.write(f"• {challenge}")
+
+                                    if exp_design.get('expected_outcomes'):
+                                        st.write("**Expected Outcomes and Success Metrics:**")
+                                        for outcome in exp_design['expected_outcomes']:
+                                            st.write(f"• {outcome}")
+                else:
+                    st.warning("No hypotheses generated from the analysis.")
 
             else:
                 st.error("❌ No successful pipeline results to display")
