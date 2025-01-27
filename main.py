@@ -116,6 +116,14 @@ def main():
                 st.write("Keywords used in search:")
                 st.write(st.session_state.search_results.get('keywords', []))
 
+            # Add MVP attribution at the bottom of sidebar
+            st.sidebar.markdown("---")  # Add a separator line
+            st.sidebar.markdown(
+                "This Scigent app has been developed as the first MVP for the ZuGrama Buildathon by the "
+                "[openALErs](https://github.com/ZuGrama/ai/issues/2#issuecomment-2612234476) team.",
+                unsafe_allow_html=True
+            )
+
         # Initialize components
         cache_manager = CacheManager()
         keyword_extractor = KeywordExtractor()
