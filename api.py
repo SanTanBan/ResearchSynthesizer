@@ -26,29 +26,34 @@ def get_research_papers():
         # Get parameters from request
         research_question = request.args.get('question', '')
         criteria = request.args.get('criteria', '')
-        use_filter = request.args.get('filter', 'false').lower() == 'true'
 
         if not research_question:
             return jsonify({'error': 'Research question is required'}), 400
 
-        # Process the query
+        # Step 1: Process the initial query
+        logging.info("Processing initial paper search")
         results = paper_processor.process_query(research_question, criteria)
+        initial_count = len(results['papers'])
+        logging.info(f"Found {initial_count} papers in initial search")
 
-        # Apply abstract filter if requested
-        if use_filter:
-            logging.info("Applying abstract filter")
-            filtered_papers = abstract_filter.filter_papers(results['papers'], research_question)
-            results['papers'] = filtered_papers
-            results['total_results'] = len(filtered_papers)
-            results['filtered'] = True
+        # Step 2: Apply abstract filter
+        logging.info("Applying abstract relevance filter")
+        filtered_papers = abstract_filter.filter_papers(results['papers'], research_question)
+        filtered_count = len(filtered_papers)
+        logging.info(f"Kept {filtered_count} papers after filtering")
+
+        # Update results with filtered papers
+        results['papers'] = filtered_papers
+        results['total_results'] = filtered_count
+        results['initial_results'] = initial_count
 
         # Return JSON response
         return jsonify({
             'status': 'success',
             'keywords': results['keywords'],
             'total_results': results['total_results'],
-            'papers': results['papers'],
-            'filtered': use_filter
+            'initial_results': results['initial_results'],
+            'papers': results['papers']
         })
 
     except Exception as e:

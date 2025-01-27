@@ -33,46 +33,50 @@ def main():
             placeholder="Example: only double-blind controlled trials, published after 2020"
         )
 
-        use_filter = st.checkbox(
-            "Use AI to filter relevant papers",
-            help="Use GPT-4o to analyze abstracts and keep only relevant papers"
-        )
-
         submitted = st.form_submit_button("Search Papers")
 
     if submitted:
         try:
-            with st.spinner("Processing your request..."):
-                if not os.environ.get("OPENAI_API_KEY"):
-                    st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
+            # Step 1: Initial Setup
+            st.info("🚀 Starting paper discovery process...")
+            if not os.environ.get("OPENAI_API_KEY"):
+                st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
 
+            # Step 2: Search Papers
+            with st.spinner("📚 Searching for relevant papers..."):
                 results = paper_processor.process_query(research_question, criteria)
+                initial_papers = len(results['papers'])
+                st.success(f"Found {initial_papers} papers based on keyword search.")
 
-                if use_filter:
-                    with st.spinner("Analyzing abstracts for relevance..."):
-                        papers_before = len(results['papers'])
-                        results['papers'] = abstract_filter.filter_papers(
-                            results['papers'], 
-                            research_question
-                        )
-                        papers_after = len(results['papers'])
-                        st.info(f"AI filter kept {papers_after} relevant papers out of {papers_before} papers.")
+            # Step 3: Filter Papers
+            with st.spinner("🤖 Analyzing paper abstracts for relevance..."):
+                papers_before = len(results['papers'])
+                results['papers'] = abstract_filter.filter_papers(
+                    results['papers'], 
+                    research_question
+                )
+                papers_after = len(results['papers'])
+                st.success(f"✨ Kept {papers_after} most relevant papers after detailed analysis.")
 
-                # Display keywords first
-                st.sidebar.subheader("Extracted Keywords")
-                st.sidebar.write(results['keywords'])
-                if 'quota_exceeded' in results:
-                    st.warning("⚠️ OpenAI API quota exceeded. Using basic keyword extraction.")
+            # Display results
+            st.sidebar.subheader("📊 Analysis Summary")
+            st.sidebar.markdown(f"**Initial papers found:** {papers_before}")
+            st.sidebar.markdown(f"**Papers after filtering:** {papers_after}")
+            st.sidebar.markdown("**Keywords used:**")
+            st.sidebar.write(results['keywords'])
 
-                # Display results
-                st.subheader(f"Found {len(results['papers'])} Papers")
-                for paper in results['papers']:
-                    with st.expander(f"{paper['title']}"):
-                        st.write(f"**Authors:** {', '.join(paper['authors'])}")
-                        st.write(f"**Published:** {paper['published']}")
-                        st.write(f"**Abstract:** {paper['abstract']}")
-                        st.write(f"**arXiv ID:** {paper['arxiv_id']}")
-                        st.write(f"**URL:** {paper['url']}")
+            if 'quota_exceeded' in results:
+                st.warning("⚠️ OpenAI API quota exceeded. Using basic keyword extraction.")
+
+            # Display papers
+            st.subheader("📑 Relevant Papers")
+            for paper in results['papers']:
+                with st.expander(f"📄 {paper['title']}"):
+                    st.write(f"**Authors:** {', '.join(paper['authors'])}")
+                    st.write(f"**Published:** {paper['published']}")
+                    st.write(f"**Abstract:** {paper['abstract']}")
+                    st.write(f"**arXiv ID:** {paper['arxiv_id']}")
+                    st.write(f"**URL:** {paper['url']}")
 
         except Exception as e:
             st.error(f"An error occurred while processing your request. Please try again later.")
