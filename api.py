@@ -12,17 +12,17 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app with static file configuration
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Configure static files
-app.static_url_path = '/static'
+# Configure static files - this must come before Swagger UI setup
+app.static_url_path = ''  # Empty string for root path
 app.static_folder = 'static'
 
 # Swagger configuration
-SWAGGER_URL = '/api/docs'
-API_URL = '/static/swagger.json'
+SWAGGER_URL = '/api/docs'  # Swagger UI path
+API_URL = '/swagger.json'  # URL for swagger.json file
 
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
@@ -37,6 +37,7 @@ swaggerui_blueprint = get_swaggerui_blueprint(
     }
 )
 
+# Register blueprint for Swagger UI
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 # Initialize components
@@ -49,6 +50,10 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize components: {str(e)}")
     raise
+
+@app.route('/swagger.json')
+def send_swagger_json():
+    return send_from_directory('static', 'swagger.json')
 
 @app.route('/static/<path:path>')
 def send_static(path):
