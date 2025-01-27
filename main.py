@@ -11,7 +11,7 @@ from paper_analyzer import PaperAnalyzer
 from parallel_processor import ParallelProcessor
 from science_agent import ScienceAgent
 
-st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
+st.set_page_config(page_title="Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology", layout="wide")
 
 def handle_together_api_key(uploaded_file):
     """Process uploaded Together AI API key file"""
@@ -33,7 +33,7 @@ def handle_together_api_key(uploaded_file):
     return False
 
 def main():
-    st.title("Research Paper Discovery System")
+    st.title("Novel Research Hypothesis Discovery Consolidation and Experimentation Design with Approach and Methodology")
 
     # Sidebar for configuration
     with st.sidebar:
