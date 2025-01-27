@@ -20,7 +20,7 @@ class AbstractFilter:
             time.sleep(self.rate_limit_delay - time_since_last_request)
         self.last_request_time = time.time()
 
-    def _analyze_abstract(self, abstract: str, research_question: str) -> bool:
+    def _analyze_abstract(self, abstract: str, research_question: str) -> Dict[str, Any]:
         """Analyze a single abstract using GPT-3.5"""
         try:
             self._rate_limit()
@@ -45,18 +45,25 @@ class AbstractFilter:
             )
 
             result = json.loads(response.choices[0].message.content)
-
-            # Adjust threshold for GPT-3.5
-            return result['is_relevant'] and result['confidence'] > 0.65
+            return {
+                'is_relevant': result['is_relevant'] and result['confidence'] > 0.65,
+                'confidence': result['confidence'],
+                'reason': result['reason']
+            }
 
         except Exception as e:
             logging.error(f"Error analyzing abstract: {str(e)}")
-            return True  # Include paper if analysis fails
+            return {
+                'is_relevant': True,  # Include paper if analysis fails
+                'confidence': 0.0,
+                'reason': f"Error during analysis: {str(e)}"
+            }
 
     def filter_papers(self, papers: List[Dict[str, Any]], research_question: str) -> List[Dict[str, Any]]:
         """Filter papers based on abstract relevance"""
         try:
             filtered_papers = []
+            analysis_results = []  # Store analysis results for all papers
             total_papers = len(papers)
 
             logging.info(f"Starting to filter {total_papers} papers")
@@ -64,8 +71,18 @@ class AbstractFilter:
             for i, paper in enumerate(papers, 1):
                 logging.info(f"Processing paper {i}/{total_papers}")
 
-                if self._analyze_abstract(paper['abstract'], research_question):
+                analysis = self._analyze_abstract(paper['abstract'], research_question)
+                paper['analysis'] = analysis  # Add analysis to paper data
+
+                if analysis['is_relevant']:
                     filtered_papers.append(paper)
+
+                analysis_results.append({
+                    'title': paper['title'],
+                    'is_relevant': analysis['is_relevant'],
+                    'confidence': analysis['confidence'],
+                    'reason': analysis['reason']
+                })
 
                 # Log progress
                 if i % 10 == 0:
@@ -73,8 +90,8 @@ class AbstractFilter:
                                 f"Kept {len(filtered_papers)} relevant papers so far.")
 
             logging.info(f"Filtering complete. Kept {len(filtered_papers)} out of {total_papers} papers")
-            return filtered_papers
+            return filtered_papers, analysis_results
 
         except Exception as e:
             logging.error(f"Error in filter_papers: {str(e)}")
-            return papers  # Return original list if filtering fails
+            return papers, []  # Return original list if filtering fails
