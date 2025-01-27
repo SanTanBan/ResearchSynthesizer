@@ -38,7 +38,12 @@ def main():
         st.subheader("🔑 API Configuration")
 
         # Together AI API Key Upload
-        uploaded_file = st.file_uploader("Upload Together AI API Key (docx)", type=['docx'])
+        st.markdown("""
+        #### Upload Together AI API Key
+        Please upload a .docx file containing **only** your Together AI API key.
+        The file should contain nothing else but the API key text.
+        """)
+        uploaded_file = st.file_uploader("Upload API Key (docx)", type=['docx'])
         if uploaded_file:
             if handle_together_api_key(uploaded_file):
                 st.success("Together AI API key loaded successfully!")

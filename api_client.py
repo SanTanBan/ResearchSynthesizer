@@ -8,6 +8,7 @@ class ArxivAPIClient:
         self.client = arxiv.Client()
         self.rate_limit_delay = 3  # seconds between requests
         self.last_request_time = 0
+        logging.basicConfig(level=logging.INFO)
 
     def _rate_limit(self):
         """Implement rate limiting"""
@@ -31,10 +32,12 @@ class ArxivAPIClient:
                     query_parts.append(f'"{clean_keyword}"')
 
             if not query_parts:
+                logging.error("No valid keywords provided for arXiv search")
                 raise ValueError("No valid keywords provided")
 
             # Combine with OR for broader results
             search_query = ' OR '.join(query_parts)
+            logging.info(f"🔍 Searching arXiv with query: {search_query}")
 
             # Create search parameters
             search = arxiv.Search(
@@ -43,12 +46,12 @@ class ArxivAPIClient:
                 sort_by=arxiv.SortCriterion.Relevance
             )
 
-            logging.info(f"Searching arXiv with query: {search_query}")
-
             # Execute search with pagination
             results = []
+            papers_found = 0
             try:
                 for result in self.client.results(search):
+                    papers_found += 1
                     paper = {
                         'title': result.title,
                         'authors': [author.name for author in result.authors],
@@ -59,24 +62,28 @@ class ArxivAPIClient:
                         'categories': result.categories
                     }
                     results.append(paper)
+                    logging.info(f"📄 Found paper: {paper['title']}")
 
                     # Apply rate limiting between results
                     if len(results) % 20 == 0:  # Rate limit every 20 papers
                         self._rate_limit()
+                        logging.info(f"⏳ Rate limiting after {len(results)} papers...")
 
                     if len(results) >= max_results:
+                        logging.info(f"🎯 Reached maximum results limit ({max_results})")
                         break
 
             except Exception as e:
                 # If we got some results before the error, return them
                 if results:
-                    logging.warning(f"Partial results retrieved due to: {str(e)}")
+                    logging.warning(f"⚠️ Partial results retrieved due to: {str(e)}")
                 else:
+                    logging.error(f"❌ Failed to get any results: {str(e)}")
                     raise  # Re-raise if we got no results
 
-            logging.info(f"Found {len(results)} papers for keywords: {keywords}")
+            logging.info(f"✅ Found {len(results)} papers for keywords: {keywords}")
             return results
 
         except Exception as e:
-            logging.error(f"Error searching arXiv: {str(e)}")
+            logging.error(f"❌ Error searching arXiv: {str(e)}")
             raise Exception(f"Failed to search arXiv: {str(e)}")
