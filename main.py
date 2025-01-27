@@ -85,7 +85,7 @@ def main():
 
             # Together AI API Key Upload
             st.markdown("""
-            #### Upload Together AI API Key (Optional)
+            #### Upload Together AI API Key (Optional, but Recommended)
             You can upload a .docx file containing your Together AI API key.
             If not provided, the app will use an internal API key.
             """)
