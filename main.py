@@ -7,16 +7,57 @@ from api_client import ArxivAPIClient
 from keyword_extractor import KeywordExtractor
 from cache_manager import CacheManager
 from abstract_filter import AbstractFilter
-from paper_analyzer import PaperAnalyzer #Import PaperAnalyzer
+from paper_analyzer import PaperAnalyzer
 
 st.set_page_config(page_title="Research Paper Discovery System", layout="wide")
+
+def handle_together_api_key(uploaded_file):
+    """Process uploaded Together AI API key file"""
+    if uploaded_file is not None:
+        try:
+            # Read the docx file
+            doc_bytes = uploaded_file.read()
+            with open("temp.docx", "wb") as f:
+                f.write(doc_bytes)
+            from docx import Document
+            doc = Document("temp.docx")
+            api_key = " ".join(paragraph.text for paragraph in doc.paragraphs)
+            os.remove("temp.docx")  # Clean up
+            st.session_state['TOGETHER_API_KEY'] = api_key
+            return True
+        except Exception as e:
+            st.error(f"Error processing API key file: {str(e)}")
+            return False
+    return False
 
 def main():
     st.title("Research Paper Discovery System")
 
+    # Sidebar for configuration
+    with st.sidebar:
+        st.subheader("🔑 API Configuration")
+
+        # Together AI API Key Upload
+        uploaded_file = st.file_uploader("Upload Together AI API Key (docx)", type=['docx'])
+        if uploaded_file:
+            if handle_together_api_key(uploaded_file):
+                st.success("Together AI API key loaded successfully!")
+
+        # Model Selection
+        st.subheader("🤖 Model Configuration")
+        selected_model = None
+        if 'TOGETHER_API_KEY' in st.session_state:
+            models = KeywordExtractor.TOGETHER_MODELS
+            use_together = st.checkbox("Use Together AI", value=True)
+            if use_together:
+                selected_model = st.selectbox("Select Together AI Model", models)
+
     # Initialize components
     cache_manager = CacheManager()
     keyword_extractor = KeywordExtractor()
+    if selected_model:
+        keyword_extractor.set_together_model(selected_model)
+
     arxiv_client = ArxivAPIClient()
     paper_processor = PaperProcessor(keyword_extractor, arxiv_client, cache_manager)
     abstract_filter = AbstractFilter()
@@ -40,8 +81,8 @@ def main():
         try:
             # Step 1: Initial Setup
             st.info("🚀 Starting paper discovery process...")
-            if not os.environ.get("OPENAI_API_KEY"):
-                st.warning("⚠️ OpenAI API key is not set. Using basic keyword extraction.")
+            if not os.environ.get("OPENAI_API_KEY") and not 'TOGETHER_API_KEY' in st.session_state:
+                st.warning("⚠️ Neither OpenAI nor Together AI keys are set. Using basic keyword extraction.")
 
             # Step 2: Search Papers
             with st.spinner("📚 Searching for relevant papers..."):
