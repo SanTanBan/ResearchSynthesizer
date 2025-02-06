@@ -24,7 +24,8 @@ st.markdown("""
         line-height: 1.2 !important;
     }
     .subtitle {
-        font-size: 0.9rem !important;
+        font-size: 1.1rem !important;
+        font-weight: bold !important;
         color: #666;
         margin-bottom: 2rem !important;
         line-height: 1.4 !important;
@@ -56,6 +57,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+
 def handle_together_api_key(uploaded_file):
     """Process uploaded Together AI API key file"""
     if uploaded_file is not None:
@@ -79,7 +81,7 @@ def handle_together_api_key(uploaded_file):
 def main():
     try:
         st.title("Replit for Science")
-        st.markdown('<p class="subtitle">Novel Research-Hypothesis Discovery & Consolidation, and Experimentation Design with Approach & Methodology</p>', unsafe_allow_html=True)
+        st.markdown('<p class="subtitle">Novel Research-Hypothesis Discovery & Consolidation → Experimentation Design Formulation (with Approach & Methodology)</p>', unsafe_allow_html=True)
 
         # Initialize session state for results
         if 'pipeline_results' not in st.session_state:
